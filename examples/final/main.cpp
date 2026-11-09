@@ -19,10 +19,6 @@
 using namespace engine;
 
 struct AppSettings {
-    cyclone::real fixedTimeStep = 0.0167;
-    int iterations = 100;
-    cyclone::real damping = 0.95;
-    cyclone::real groundFriction = 1.0;
 }_appSettings;
 
 void initCamera(Camera& camera)
@@ -47,37 +43,6 @@ void handleInput(Camera& camera, cyclone::real dt)
         ew::UpdateFlyCamera(&camera, dt);
     }
 }
-
-void updateColliders(const std::vector<cyclone::Collider*>& colliders)
-{
-    for (auto c : colliders)
-    {
-        // update internals
-        cyclone::Collider* collider = c;
-        collider->updateInternals();
-    }
-}
-void checkCollisions(const std::vector<cyclone::Collider*>& colliders, cyclone::CollisionData* data)
-{
-    for (int i = 0; i < colliders.size(); i++)
-    {
-        for (int j = i + 1; j < colliders.size(); j++)
-        {
-            // check for overlap
-            bool hit = cyclone::CollisionTests::checkCollide(colliders[i], colliders[j], data);
-            if (hit)
-            {
-                colliders[i]->incrementOverlapCount();
-                colliders[j]->incrementOverlapCount();
-            }
-        }
-    }
-}
-
-const float ROPE_SEGMENT_LENGTH = 0.1f;
-const float ROPE_THICKNESS = 0.1f;
-const float ROPE_SEGMENTS = 120;
-const int MASS = 1;
 
 int main() {
    // Initialization \
