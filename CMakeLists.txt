@@ -23,4 +23,4 @@ add_subdirectory(vendor/rlImGui)
 add_subdirectory(ew)
 
 #Examples
-add_subdirectory(examples/final)
+add_subdirectory(final)
