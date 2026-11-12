@@ -274,7 +274,7 @@ namespace cyclone {
         }
         friend std::ostream& operator<<(std::ostream& os, const Vector3& v)
         {
-            os << "(" << v.x << ", " << v.y << ", " << v.z << ")";
+            os << v.x << ", " << v.y << ", " << v.z;
             return os;
         }
         bool operator==(const Vector3& other) const
@@ -349,7 +349,7 @@ namespace cyclone {
         }
         friend std::ostream& operator<<(std::ostream& os, const Vector3Int& v)
         {
-            os << "(" << v.x << ", " << v.y << ", " << v.z << ")";
+            os << v.x << ", " << v.y << ", " << v.z;
             return os;
         }
     };
@@ -467,7 +467,7 @@ namespace cyclone {
 
         friend std::ostream& operator<<(std::ostream& os, const Quaternion& q)
         {
-            os << "(" << q.r << ", " << q.i << ", " << q.j << ", " << q.k << ")";
+            os << q.r << ", " << q.i << ", " << q.j << ", " << q.k;
             return os;
         }
 
@@ -556,9 +556,9 @@ namespace cyclone {
 
         friend std::ostream& operator<<(std::ostream& os, const Matrix4& m)
         {
-            os << "[" << m.data[0] << ", " << m.data[1] << ", " << m.data[2] << ", " << m.data[3] << "]\n"
-               << "[" << m.data[4] << ", " << m.data[5] << ", " << m.data[6] << ", " << m.data[7] << "]\n"
-               << "[" << m.data[8] << ", " << m.data[9] << ", " << m.data[10] << ", " << m.data[11] << "]";
+            os << m.data[0] << ", " << m.data[1] << ", " << m.data[2] << ", " << m.data[3] << "\n"
+               << m.data[4] << ", " << m.data[5] << ", " << m.data[6] << ", " << m.data[7] << "\n"
+               << m.data[8] << ", " << m.data[9] << ", " << m.data[10] << ", " << m.data[11];
             return os;
         }
 
@@ -940,9 +940,9 @@ namespace cyclone {
 
         friend std::ostream& operator<<(std::ostream& os, const Matrix3& m)
         {
-            os << "[" << m.data[0] << ", " << m.data[1] << ", " << m.data[2] << "]\n"
-                << "[" << m.data[3] << ", " << m.data[4] << ", " << m.data[5] << "]\n"
-                << "[" << m.data[6] << ", " << m.data[7] << ", " << m.data[8] << "]\n";
+            os << m.data[0] << ", " << m.data[1] << ", " << m.data[2] << "\n"
+                << m.data[3] << ", " << m.data[4] << ", " << m.data[5] << "\n"
+                << m.data[6] << ", " << m.data[7] << ", " << m.data[8];
             return os;
         }
 

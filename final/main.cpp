@@ -15,6 +15,7 @@
 
 #include <random>
 #include <chrono>
+#include <fstream>
 
 using namespace engine;
 
@@ -42,6 +43,27 @@ void handleInput(Camera& camera, cyclone::real dt)
     if (IsCursorHidden()) {
         ew::UpdateFlyCamera(&camera, dt);
     }
+}
+
+void savePlanets(const std::vector<cyclone::Collider*>& colliders, const std::string& filename)
+{
+    // write to the file
+    std::ofstream fout;
+    fout.open(filename);
+    if (!fout.is_open())
+    {
+        Debug::error() << "Couldn't open: '" << filename << "'\n";
+        return;
+    }
+
+    for (cyclone::Collider* c : colliders)
+    {
+        fout << c->getTransform() << '\n';
+        fout << c->getOffset() << '\n';
+        fout << (int)c->getType() << '\n';
+    }
+
+    fout.close();
 }
 
 int main() {
@@ -80,6 +102,11 @@ int main() {
         //ImGUI
         rlImGuiBegin();
         ImGui::Begin("SETTINGS");
+
+        if(ImGui::Button("Load Objects"))
+        {
+
+        }
 
         ImGui::End();
         rlImGuiEnd();
