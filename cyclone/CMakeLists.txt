@@ -17,7 +17,8 @@ set(cyclone_sources
 	"octree.cpp" 
 	"spacialHashing.cpp" 
 	"verletParticle.cpp" 
-	"rope.cpp")
+	"rope.cpp"
+	"gravityBody.cpp")
 set(cyclone_headers
 	"precision.h"
 	"core.h"
@@ -38,7 +39,8 @@ set(cyclone_headers
 	"octree.h" 
 	"spacialHashing.h" 
 	"verletParticle.h" 
-	"rope.h")
+	"rope.h"
+	"gravityBody.h")
 
 set(cyclone_INC_DIR
  ${CMAKE_CURRENT_SOURCE_DIR}
