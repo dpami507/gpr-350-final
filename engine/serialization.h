@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <bit>
 
 #include "../cyclone/cyclone.h"
 
@@ -11,149 +12,245 @@ enum SerializeTypes
 	RIGIDBODY,
 };
 
+class BitWriter
+{
+public:
+	BitWriter() = default;
+	~BitWriter() = default;
+
+	void writeBits(uint32_t value, int bits)
+	{
+		if (bits < 1 || bits > 32)
+			return;
+
+		//Shift masked value and or it into m_scrath
+		mScratch |= static_cast<uint64_t>(value) << mScratchBits;
+
+		//Add 'bits' to 'mScratchBits'
+		mScratchBits += bits;
+
+		while (mScratchBits >= 8)
+		{
+			//Bit mask to 8 bits
+			mBuffer.push_back(static_cast<uint8_t>(mScratch & 0xFF));
+
+			//Move over to the next 8 bits
+			mScratch >>= 8;
+			mScratchBits -= 8;
+		}
+
+		//Add bits to total bits
+		mTotalBits += bits;
+	}
+	void writeBool(bool value)
+	{
+		writeBits(value ? 1 : 0, 1);
+	}
+	void flush() {
+		while (mScratchBits > 0) {
+			mBuffer.push_back(static_cast<uint8_t>(mScratch & 0xFF));
+			mScratch >>= 8;
+			mScratchBits = (mScratchBits > 8) ? (mScratchBits - 8) : 0;
+		}
+	}
+	void writeBytes(const uint8_t* data, size_t length)
+	{
+		flush(); // ensure byte alignment
+		mBuffer.insert(mBuffer.end(), data, data + length);
+		mTotalBits += static_cast<int>(length * 8);
+	}
+
+	/// Pointer to the serialized byte buffer (valid after flush).
+	const uint8_t* data() const { return mBuffer.data(); }
+
+	/// Number of bytes written (valid after flush).
+	size_t size() const { return mBuffer.size(); }
+
+	/// Total number of bits written so far.
+	size_t bitsWritten() const { return mTotalBits; }
+
+private:
+	std::vector<uint8_t> mBuffer;
+	uint64_t mScratch = 0;
+	int mScratchBits = 0;       
+	int mTotalBits = 0;           
+};
+class BitReader
+{
+public:
+    BitReader(const uint8_t* data, size_t size)
+        : mData(data), mSize(size) {
+    }
+
+    uint32_t readBits(int bits) {
+        if (bits < 1 || bits > 32)
+            return;
+
+        while (mScratchBits < bits && mByteOffset < mSize)
+        {
+            //Read the next byte from `mData[mByteOffset]`.
+            //OR it into `mScratch`, shifted LEFT by `mScratchBits`.
+			mScratch |= static_cast<uint64_t>(mData[mByteOffset++]) << mScratchBits;
+
+            //Increment `mByteOffset` and add 8 to `mScratchBits`.
+			mScratchBits += 8;
+        }
+
+        //Mask the lowest `bits` bits of `mScratch` — that's the result.
+        uint32_t result = mScratch & ((1ULL << bits) - 1);
+
+        //Right-shift `mScratch` by `bits` and subtract from `mScratchBits`.
+		mScratch >>= bits;
+		mScratchBits -= bits;
+
+        //Add `bits` to `mTotalBitsRead`.
+		mTotalBitsRead += bits;
+
+        //Return the result.
+        return result;
+    }
+
+    /**
+     * Read a single boolean (1 bit).
+     */
+    bool readBool() {
+        return readBits(1) != 0;
+    }
+
+    /**
+     * Read raw bytes from the buffer (for string data, etc.).
+     * Discards any remaining bits in scratch to re-align to byte boundary.
+     */
+    void readBytes(uint8_t* out, size_t len) {
+        // Discard remaining scratch bits to align to byte boundary
+		mScratch = 0;
+		mScratchBits = 0;
+        for (size_t i = 0; i < len && mByteOffset < mSize; ++i) {
+            out[i] = mData[mByteOffset++];
+        }
+		mTotalBitsRead += static_cast<int>(len * 8);
+    }
+
+    /// Total bits consumed so far.
+    size_t bitsRead() const { return mTotalBitsRead; }
+
+private:
+    const uint8_t* mData;       ///< source byte buffer
+    size_t mSize;               ///< total bytes in buffer
+    size_t mByteOffset = 0;    ///< current byte read position
+    uint64_t mScratch = 0;      ///< scratch register
+    int mScratchBits = 0;      ///< bits available in scratch
+    int mTotalBitsRead = 0;   ///< running count of all bits read
+};
+
 class Serializer
 {
 public:
-	Serializer();
-	~Serializer();
+	Serializer() = default;
+	~Serializer() = default;
 
-	static std::string serializeRigidbody(const cyclone::Rigidbody* rb)
+	void serializeRigidbody(BitWriter& writer, cyclone::Rigidbody& rigidbody)
 	{
-		std::stringstream output;
-		output << RIGIDBODY + ' ';
+		serializeVec3(writer, rigidbody.getPos());
+		serializeVec3(writer, rigidbody.getLinearVelocity());
+		serializeVec3(writer, rigidbody.getAccel());
 
-		output << rb->getMass() << ' ';
-		output << serializeVec3(rb->getPos()) << ' ';
-		output << serializeVec3(rb->getLinearVelocity()) << ' ';
-		output << serializeQuaternion(rb->getOrientation()) << ' ';
+		writer.writeBits(rigidbody.getLinearDamping(), 32);
+		writer.writeBits(rigidbody.getMass(), 32);
 
-		return output.str();
+		serializeQuaternion(writer, rigidbody.getOrientation());
+		serializeVec3(writer, rigidbody.getAngularVelocity());
+		serializeMat3(writer, rigidbody.getInertiaTensor());
+
+		writer.writeBits(rigidbody.getAngularDamping(), 32);
+
+		writer.flush();
 	}
-	static cyclone::Rigidbody& deserializeRigidbody(const std::string& str)
+	void deserializeRigidbody(BitReader& reader, cyclone::Rigidbody& rigidbody)
 	{
-		std::stringstream ss(str);
-		std::string token;
-		int indx = 0;
+		cyclone::Vector3 pos;
+		deserializeVec3(reader, pos);
+		rigidbody.setPosition(pos);
 
-		cyclone::Rigidbody newRb;
+		cyclone::Vector3 linVel;
+		deserializeVec3(reader, linVel);
+		rigidbody.setLinearVelocity(linVel);
 
-		newRb.setMass(std::getline(ss, ' '))
-		while (std::getline(ss, token, ' '))
-		{
-			newMat4.data[indx] = std::stof(token);
-			indx++;
-		}
+		cyclone::Vector3 accel;
+		deserializeVec3(reader, accel);
+		rigidbody.setAcceleration(accel);
+
+		rigidbody.setLinearDaming(reader.readBits(32));
+		rigidbody.setMass(reader.readBits(32));
+
+		cyclone::Quaternion ori;
+		deserializeQuaternion(reader, ori);
+		rigidbody.setOrientation(ori);
+
+		cyclone::Vector3 angVel;
+		deserializeVec3(reader, angVel);
+		rigidbody.setAngularVelocity(angVel);
+
+		cyclone::Matrix3 iit;
+		deserializeMat3(reader, iit);
+		rigidbody.setInertiaTensor(iit);
+
+		rigidbody.setAngularDaming(reader.readBits(32));
 	}
-	static std::string serializeCollider(const cyclone::Collider& col)
-	{
-		std::string output;
-		output += COLLIDER + ' ';
-		
-		output += (int)col.getType() + ' ';
-		output += serializeMat4(col.getTransform()) + ' ';
-		output += serializeMat4(col.getOffset()) + ' ';
-		return output;
-	}
-	static cyclone::Collider* deserializeCollider(const std::string& str)
-	{
-		std::stringstream ss(str);
-		std::string token;
 
-		// read colldier type
-		std::getline(ss, token, ' ');
-		int type = std::stoi(token);
-		switch (type)
-		{
-		case 0: // Sphere
-			cyclone::SphereCollider* newSphere = new cyclone::SphereCollider()
-			break;
-		case 1: // Plane
-			break;
-		case 2: // Box
-		default:
-			break;
-		}
-
-		cyclone::Collider newCollider;
-		while (std::getline(ss, token, ' '))
-		{
-			newMat4.data[indx] = std::stof(token);
-			indx++;
-		}
-	}
 private:
-	static std::string serializeVec3(const cyclone::Vector3& vec3)
+	void serializeMat4(BitWriter& writer, const cyclone::Matrix4& mat4)
 	{
-		std::stringstream output;
-
-		for (auto d : vec3.data)
-			output << d + ' ';
-
-		return output.str();
-	}
-	static cyclone::Vector3& deserializeVec3(const std::string& str)
-	{
-		std::stringstream ss(str);
-		std::string token;
-		int indx = 0;
-
-		cyclone::Vector3 newVec3;
-		while (std::getline(ss, token, ' '))
+		for (cyclone::real n : mat4.data)
 		{
-			newVec3.data[indx] = std::stof(token);
-			indx++;
+			writer.writeBits(n, 32);
 		}
 	}
-	static std::string serializeQuaternion(const cyclone::Quaternion& quat)
+	void deserializeMat4(BitReader& reader, cyclone::Matrix4& mat4)
 	{
-		std::stringstream output;
-
-		for (auto d : quat.data)
-			output << d + ' ';
-
-		return output.str();
-	}
-	static cyclone::Quaternion& deserializeQuaternion(const std::string& str)
-	{
-		std::stringstream ss(str);
-		std::string token;
-		int indx = 0;
-
-		cyclone::Quaternion newQuat;
-		while (std::getline(ss, token, ' '))
+		for (cyclone::real n : mat4.data)
 		{
-			newQuat.data[indx] = std::stof(token);
-			indx++;
+			n = reader.readBits(32);
 		}
 	}
-	static std::string serializeMat4(const cyclone::Matrix4& mat4)
+	void serializeMat3(BitWriter& writer, const cyclone::Matrix3& mat3)
 	{
-		std::stringstream output;
-
-		for (auto d : mat4.data)
-			output << d + ' ';
-
-		return output.str();
-	}
-	static cyclone::Matrix4& deserializeMat4(const std::string& str)
-	{
-		std::stringstream ss(str);
-		std::string token;
-		int indx = 0;
-
-		cyclone::Matrix4 newMat4;
-		while (std::getline(ss, token, ' '))
+		for (cyclone::real n : mat3.data)
 		{
-			newMat4.data[indx] = std::stof(token);
-			indx++;
+			writer.writeBits(n, 32);
 		}
+	}
+	void deserializeMat3(BitReader& reader, cyclone::Matrix3& mat3)
+	{
+		for (cyclone::real n : mat3.data)
+		{
+			n = reader.readBits(32);
+		}
+	}
+	void serializeVec3(BitWriter& writer, const cyclone::Vector3& vec3)
+	{
+		writer.writeBits(vec3.x, 32);
+		writer.writeBits(vec3.y, 32);
+		writer.writeBits(vec3.z, 32);
+	}
+	void deserializeVec3(BitReader& reader, cyclone::Vector3& vec3)
+	{
+		vec3.x = reader.readBits(32);
+		vec3.y = reader.readBits(32);
+		vec3.z = reader.readBits(32);
+	}
+	void serializeQuaternion(BitWriter& writer, const cyclone::Quaternion& quaternion)
+	{
+		writer.writeBits(quaternion.i, 32);
+		writer.writeBits(quaternion.j, 32);
+		writer.writeBits(quaternion.k, 32);
+		writer.writeBits(quaternion.r, 32);
+	}
+	void deserializeQuaternion(BitReader& reader, cyclone::Quaternion& quaternion)
+	{
+		quaternion.i = reader.readBits(32);
+		quaternion.j = reader.readBits(32);
+		quaternion.k = reader.readBits(32);
+		quaternion.r = reader.readBits(32);
 	}
 };
-
-Serializer::Serializer()
-{
-}
-
-Serializer::~Serializer()
-{
-}
