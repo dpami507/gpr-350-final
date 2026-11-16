@@ -5,6 +5,7 @@
 #include <cyclone/cyclone.h>
 #include <imgui.h>
 #include <rlImGui.h>
+#include "rlgl.h"
 
 #include <ew/camera.h>
 #include <ew/conversions.h>
@@ -42,16 +43,26 @@ void handleInput(Camera& camera, cyclone::real dt)
     }
     //Only allow movement if the cursor is hidden
     if (IsCursorHidden()) {
-        ew::UpdateFlyCamera(&camera, dt);
+        ew::UpdateFlyCamera(&camera, dt, 20);
     }
 }
 
 int main() {
    // Initialization \
    --------------------------------------------------------------------------------------
-
+    
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(1280, 720, "final countdown?!");
+
+    const char* glVersion = (const char*)glGetString(GL_VERSION);
+    const char* glRenderer = (const char*)glGetString(GL_RENDERER);
+
+    TraceLog(LOG_INFO, "Active OpenGL Version: %s", glVersion);
+    TraceLog(LOG_INFO, "GPU Renderer: %s", glRenderer);
+
+    char* rbLogicCode = LoadFileText("assets/rb.glsl");
+    unsigned int rbLogicShader = rlLoadShaderCode(rbLogicCode, RL_COMPUTE_SHADER);
+    unsigned int rbLogicProgram = rlLoadComputeShaderProgram(rbLogicShader);
 
     //Texture2D ballTex = LoadTexture("assets/joebiden.jpeg");
     Texture2D ballTex = LoadTexture("assets/vision.png");
@@ -67,18 +78,24 @@ int main() {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> rot(0, 6.28);
-    std::uniform_real_distribution<float> dist(100, 150);
+    std::uniform_real_distribution<float> dist(100, 250);
     std::uniform_real_distribution<float> height(-10, 10);
 
     std::vector<cyclone::SphereCollider> colliders;
+    std::vector<cyclone::Rigidbody> rbs;
+
     for (int i = 0; i < COUNT; i++)
     {
-        cyclone::Rigidbody* newRb = new cyclone::Rigidbody(); 
-        cyclone::SphereCollider newCol(newRb, cyclone::Matrix4(), 0.5);
+        cyclone::Rigidbody newRb = cyclone::Rigidbody();
+        rbs.emplace_back(newRb);
+    }
+    for (int i = 0; i < COUNT; i++)
+    {
+        cyclone::SphereCollider newCol(&rbs[i], cyclone::Matrix4(), 0.5);
 
         float angle = rot(gen);
         cyclone::Vector3 pos(cos(angle) * dist(gen), height(gen), sin(angle) * dist(gen));
-        newRb->setPosition(pos);
+        rbs[i].setPosition(pos);
 
         colliders.emplace_back(newCol);
     }
@@ -150,6 +167,7 @@ int main() {
 
         //Outside of 3D mode, we can draw 2D things directly to the screen in pixel coordinates
         DrawFPS(GetScreenWidth() - 128, 16);
+        DrawText(TextFormat("OpenGL Version: %s", glVersion), 20, 20, 20, DARKGRAY);
 
         //ImGUI
         rlImGuiBegin();
