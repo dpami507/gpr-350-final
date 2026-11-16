@@ -19,6 +19,9 @@
 using namespace engine;
 
 struct AppSettings {
+
+    cyclone::real mPlanetoidRadius = 1.5f;
+
 }_appSettings;
 
 void initCamera(Camera& camera)
@@ -56,13 +59,17 @@ int main() {
     Camera3D camera = { 0 };
     initCamera(camera);
 
-    Model sphereModel = LoadModelFromMesh(GenMeshSphere( 0.5f, 16, 16 ));
+    Model sphereModel = LoadModelFromMesh(GenMeshSphere(_appSettings.mPlanetoidRadius, 16, 16 ));
 
     cyclone::CollisionData ColData;
     ColData.init(32);
 
-    cyclone::GravityBody* PlanetDavid = new cyclone::GravityBody({ 0.0f, 0.0f, 20.0f }, 0.5f); //infinite life
-    cyclone::GravityBody* PlanetTetra = new cyclone::GravityBody({ 0.0f, 0.0f,-20.0f }, 0.5f); //unlivable
+    cyclone::Rigidbody* DavidRigidBody = new cyclone::Rigidbody({ 0.0f, 0.0f, 20.0f }, { 0,5,0 }, { 0,-1,0 }, 10.0f);
+    cyclone::SphereCollider* DavidCollider = new cyclone::SphereCollider(DavidRigidBody, cyclone::Matrix4(), _appSettings.mPlanetoidRadius);
+    cyclone::GravityBody* PlanetDavid = new cyclone::GravityBody(DavidCollider);
+    cyclone::Rigidbody* TetraRigidBody = new cyclone::Rigidbody({ 0.0f, 0.0f, -20.0f }, { 0,-5,0 }, { 0,1,0 }, 10.0f);
+    cyclone::SphereCollider* TetraCollider = new cyclone::SphereCollider(TetraRigidBody, cyclone::Matrix4(), _appSettings.mPlanetoidRadius);
+    cyclone::GravityBody* PlanetTetra = new cyclone::GravityBody(TetraCollider);
 
     std::vector<cyclone::GravityBody*> planets;
 
@@ -75,6 +82,12 @@ int main() {
         //Seconds between previous frame and this one
         float deltaTime = GetFrameTime();
         handleInput(camera, deltaTime);
+
+        for (int i = 0; i < planets.size(); i++)
+        {
+            planets[i]->update();
+            planets[i]->integrate(deltaTime);
+        }
 
         ColData.setToStart();
 
@@ -100,6 +113,7 @@ int main() {
         {
             sphereModel.transform = ew::CTR(planets[i]->getTransform());
             DrawModel(sphereModel, { 0,0,0 }, 1.0f, BLUE);
+            DrawModelWires(sphereModel, { 0,0,0 }, 1.0f, BLACK);
         }
 
         DrawGrid(100, 1);
@@ -112,6 +126,17 @@ int main() {
         //ImGUI
         rlImGuiBegin();
         ImGui::Begin("SETTINGS");
+
+        ImGui::BeginDisabled();
+
+        Vector3 ddp = ew::CTR(PlanetDavid->getAxis(3));
+        Vector3 ddtp = ew::CTR(PlanetDavid->getCollider()->getRigidbody()->getPos());
+        Vector3 ddv = ew::CTR(PlanetDavid->getCollider()->getRigidbody()->getLinearVelocity());
+        ImGui::DragFloat3("David Pos", &ddp.x);
+        ImGui::DragFloat3("David True Pos", &ddtp.x);
+        ImGui::DragFloat3("David Vel", &ddv.x);
+
+        ImGui::EndDisabled();
 
         ImGui::End();
         rlImGuiEnd();

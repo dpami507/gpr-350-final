@@ -18,6 +18,7 @@ namespace cyclone
 		~GravityBody() {}
 
 		void update();
+		void integrate(real dt) { mCol->getRigidbody()->integrate(dt); };
 
 		static void calcGravForce(GravityBody* a, GravityBody* b);
 
