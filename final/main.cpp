@@ -21,7 +21,7 @@ using namespace engine;
 struct AppSettings {
 }_appSettings;
 
-const int COUNT = 10000;
+const int COUNT = 100000;
 
 void initCamera(Camera& camera)
 {
@@ -67,7 +67,7 @@ int main() {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> rot(0, 6.28);
-    std::uniform_real_distribution<float> dist(50, 100);
+    std::uniform_real_distribution<float> dist(100, 150);
     std::uniform_real_distribution<float> height(-10, 10);
 
     std::vector<cyclone::SphereCollider> colliders;
