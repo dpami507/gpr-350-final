@@ -22,7 +22,7 @@ using namespace engine;
 struct AppSettings {
 }_appSettings;
 
-const int COUNT = 100000;
+const int COUNT = 50000;
 
 void initCamera(Camera& camera)
 {
@@ -46,23 +46,12 @@ void handleInput(Camera& camera, cyclone::real dt)
         ew::UpdateFlyCamera(&camera, dt, 20);
     }
 }
-
 int main() {
    // Initialization \
    --------------------------------------------------------------------------------------
     
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(1280, 720, "final countdown?!");
-
-    const char* glVersion = (const char*)glGetString(GL_VERSION);
-    const char* glRenderer = (const char*)glGetString(GL_RENDERER);
-
-    TraceLog(LOG_INFO, "Active OpenGL Version: %s", glVersion);
-    TraceLog(LOG_INFO, "GPU Renderer: %s", glRenderer);
-
-    char* rbLogicCode = LoadFileText("assets/rb.glsl");
-    unsigned int rbLogicShader = rlLoadShaderCode(rbLogicCode, RL_COMPUTE_SHADER);
-    unsigned int rbLogicProgram = rlLoadComputeShaderProgram(rbLogicShader);
 
     //Texture2D ballTex = LoadTexture("assets/joebiden.jpeg");
     Texture2D ballTex = LoadTexture("assets/vision.png");
@@ -167,7 +156,6 @@ int main() {
 
         //Outside of 3D mode, we can draw 2D things directly to the screen in pixel coordinates
         DrawFPS(GetScreenWidth() - 128, 16);
-        DrawText(TextFormat("OpenGL Version: %s", glVersion), 20, 20, 20, DARKGRAY);
 
         //ImGUI
         rlImGuiBegin();
