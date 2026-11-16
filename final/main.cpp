@@ -21,7 +21,7 @@ using namespace engine;
 struct AppSettings {
 }_appSettings;
 
-const int COUNT = 73562;
+const int COUNT = 10000;
 
 void initCamera(Camera& camera)
 {
@@ -53,7 +53,8 @@ int main() {
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(1280, 720, "final countdown?!");
 
-    Texture2D ballTex = LoadTexture("assets/joebiden.jpeg");
+    //Texture2D ballTex = LoadTexture("assets/joebiden.jpeg");
+    Texture2D ballTex = LoadTexture("assets/vision.png");
 
     Mesh sphereMesh = GenMeshSphere(0.5, 8, 8);
     Material sphereMaterial = LoadMaterialDefault();
@@ -66,7 +67,7 @@ int main() {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> rot(0, 6.28);
-    std::uniform_real_distribution<float> dist(100, 150);
+    std::uniform_real_distribution<float> dist(50, 100);
     std::uniform_real_distribution<float> height(-10, 10);
 
     std::vector<cyclone::SphereCollider> colliders;
@@ -87,7 +88,7 @@ int main() {
     cyclone::ContactResolver resolver;
     resolver.setCOR(0.95);
 
-    cyclone::SpacialHashing hashing(5);
+    cyclone::SpacialHashing hashing(3);
 
     rlImGuiSetup(true);
 
