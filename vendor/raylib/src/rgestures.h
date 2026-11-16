@@ -21,7 +21,7 @@
 *
 *   LICENSE: zlib/libpng
 *
-*   Copyright (c) 2014-2026 Ramon Santamaria (@raysan5)
+*   Copyright (c) 2014-2024 Ramon Santamaria (@raysan5)
 *
 *   This software is provided "as-is", without any express or implied warranty. In no event
 *   will the authors be held liable for any damages arising from the use of this software.
@@ -59,13 +59,10 @@
 // NOTE: Below types are required for standalone usage
 //----------------------------------------------------------------------------------
 // Boolean type
-#if !defined(__cplusplus)
 #if (defined(__STDC__) && __STDC_VERSION__ >= 199901L) || (defined(_MSC_VER) && _MSC_VER >= 1800)
     #include <stdbool.h>
-#elif !defined(bool)
+#elif !defined(__cplusplus) && !defined(bool) && !defined(RL_BOOL_TYPE)
     typedef enum bool { false = 0, true = !false } bool;
-    #define RL_BOOL_TYPE
-#endif
 #endif
 
 #if !defined(RL_VECTOR2_TYPE)
@@ -127,7 +124,7 @@ void UpdateGestures(void);                              // Update gestures detec
 
 #if defined(RGESTURES_STANDALONE)
 void SetGesturesEnabled(unsigned int flags);            // Enable a set of gestures using flags
-bool IsGestureDetected(int gesture);                    // Check if gesture has been detected
+bool IsGestureDetected(int gesture);                    // Check if a gesture have been detected
 int GetGestureDetected(void);                           // Get latest detected gesture
 
 float GetGestureHoldDuration(void);                     // Get gesture hold time in seconds
@@ -157,8 +154,8 @@ float GetGesturePinchAngle(void);                       // Get gesture pinch ang
     extern "C" {        // Prevents name mangling of functions
     #endif
     // Functions required to query time on Windows
-    int __stdcall QueryPerformanceCounter(unsigned long long *lpPerformanceCount);
-    int __stdcall QueryPerformanceFrequency(unsigned long long *lpFrequency);
+    int __stdcall QueryPerformanceCounter(unsigned long long int *lpPerformanceCount);
+    int __stdcall QueryPerformanceFrequency(unsigned long long int *lpFrequency);
     #if defined(__cplusplus)
     }
     #endif
@@ -235,13 +232,13 @@ typedef struct {
 // Global Variables Definition
 //----------------------------------------------------------------------------------
 static GesturesData GESTURES = {
-    .current = GESTURE_NONE,        // No current gesture detected
     .Touch.firstId = -1,
+    .current = GESTURE_NONE,        // No current gesture detected
     .enabledFlags = 0b0000001111111111  // All gestures supported by default
 };
 
 //----------------------------------------------------------------------------------
-// Module Internal Functions Declaration
+// Module specific Functions Declaration
 //----------------------------------------------------------------------------------
 static float rgVector2Angle(Vector2 initialPosition, Vector2 finalPosition);
 static float rgVector2Distance(Vector2 v1, Vector2 v2);
@@ -257,7 +254,7 @@ void SetGesturesEnabled(unsigned int flags)
     GESTURES.enabledFlags = flags;
 }
 
-// Check if gesture have been detected
+// Check if a gesture have been detected
 bool IsGestureDetected(unsigned int gesture)
 {
     if ((GESTURES.enabledFlags & GESTURES.current) == gesture) return true;
@@ -300,10 +297,10 @@ void ProcessGestureEvent(GestureEvent event)
         }
         else if (event.touchAction == TOUCH_ACTION_UP)
         {
-            // A swipe can happen while the current gesture is drag, but (especially for web) also hold, so set upPosition for both cases
+            // A swipe can happen while the current gesture is drag, but (specially for web) also hold, so set upPosition for both cases
             if (GESTURES.current == GESTURE_DRAG || GESTURES.current == GESTURE_HOLD) GESTURES.Touch.upPosition = event.position[0];
 
-            // NOTE: GESTURES.Drag.intensity is dependent on the resolution of the screen
+            // NOTE: GESTURES.Drag.intensity dependent on the resolution of the screen
             GESTURES.Drag.distance = rgVector2Distance(GESTURES.Touch.downPositionA, GESTURES.Touch.upPosition);
             GESTURES.Drag.intensity = GESTURES.Drag.distance/(float)((rgGetCurrentTime() - GESTURES.Swipe.startTime));
 
@@ -353,7 +350,7 @@ void ProcessGestureEvent(GestureEvent event)
             GESTURES.Drag.vector.y = GESTURES.Touch.moveDownPositionA.y - GESTURES.Touch.downDragPosition.y;
         }
     }
-    else if (GESTURES.Touch.pointCount == 2)
+    else if (GESTURES.Touch.pointCount == 2)    // Two touch points
     {
         if (event.touchAction == TOUCH_ACTION_DOWN)
         {
@@ -484,7 +481,7 @@ float GetGesturePinchAngle(void)
 }
 
 //----------------------------------------------------------------------------------
-// Module Internal Functions Definition
+// Module specific Functions Definition
 //----------------------------------------------------------------------------------
 // Get angle from two-points vector with X-axis
 static float rgVector2Angle(Vector2 v1, Vector2 v2)
@@ -518,36 +515,37 @@ static double rgGetCurrentTime(void)
     time = GetTime();
 #else
 #if defined(_WIN32)
-    unsigned long long clockFrequency = 0;
-    unsigned long long currentClockTicks = 0;
+    unsigned long long int clockFrequency, currentTime;
 
     QueryPerformanceFrequency(&clockFrequency); // BE CAREFUL: Costly operation!
-    QueryPerformanceCounter(&currentClockTicks);
+    QueryPerformanceCounter(&currentTime);
 
-    time = (double)currentClockTicks/clockFrequency; // Time in seconds
+    time = (double)currentTime/clockFrequency;  // Time in seconds
 #endif
+
 #if defined(__linux__)
     // NOTE: Only for Linux-based systems
-    struct timespec now = { 0 };
+    struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
-    unsigned long long nanoSeconds = (unsigned long long)now.tv_sec*1000000000LLU + (unsigned long long)now.tv_nsec;
+    unsigned long long int nowTime = (unsigned long long int)now.tv_sec*1000000000LLU + (unsigned long long int)now.tv_nsec;     // Time in nanoseconds
 
-    time = ((double)nanoSeconds*1e-9); // Time in seconds
+    time = ((double)nowTime*1e-9);     // Time in seconds
 #endif
+
 #if defined(__APPLE__)
     //#define CLOCK_REALTIME  CALENDAR_CLOCK    // returns UTC time since 1970-01-01
     //#define CLOCK_MONOTONIC SYSTEM_CLOCK      // returns the time since boot time
 
-    clock_serv_t cclock = { 0 };
-    mach_timespec_t now = { 0 };
+    clock_serv_t cclock;
+    mach_timespec_t now;
     host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
 
     // NOTE: OS X does not have clock_gettime(), using clock_get_time()
     clock_get_time(cclock, &now);
     mach_port_deallocate(mach_task_self(), cclock);
-    unsigned long long nanoSeconds = (unsigned long long)now.tv_sec*1000000000LLU + (unsigned long long)now.tv_nsec;
+    unsigned long long int nowTime = (unsigned long long int)now.tv_sec*1000000000LLU + (unsigned long long int)now.tv_nsec;     // Time in nanoseconds
 
-    time = ((double)nanoSeconds*1e-9); // Time in seconds
+    time = ((double)nowTime*1e-9);     // Time in seconds
 #endif
 #endif
 
