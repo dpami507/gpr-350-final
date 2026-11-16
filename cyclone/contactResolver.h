@@ -14,6 +14,7 @@ namespace cyclone
 	private:
 		static void adjustPositions(cyclone::Contact* contactArray, unsigned int numContacts, cyclone::real dt);
 		static void adjustVelocities(cyclone::Contact* contactArray, unsigned int numContacts, cyclone::real dt);
+		static void adjustTorques(cyclone::Contact* contactArray, unsigned int numContacts, cyclone::real dt);
 
 		static real coefOfRestitution;
 	};
