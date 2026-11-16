@@ -36,7 +36,7 @@ int CollisionTests::SphereSphereCollide(const SphereCollider& a, const SphereCol
 {
 	// get off set and normal
 	Vector3 offset = a.getAxis(3) - b.getAxis(3);
-	real dist = offset.magnitude();
+	real dist = offset.squareMagnitude();
 	real radiiSum = a.getRadius() + b.getRadius();
 
 	// early out if there is no penetration

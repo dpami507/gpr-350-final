@@ -10,7 +10,7 @@ namespace cyclone
 
 	void SpacialHashing::insert(Collider* collider)
 	{
-		Vector3 colliderPos = collider->getAxis(3);
+		const Vector3 colliderPos = collider->getAxis(3);
 		Vector3Int hashVec(
 			(int)ceil(colliderPos.x * mInverseSpacing),
 			(int)ceil(colliderPos.y * mInverseSpacing),
@@ -18,15 +18,17 @@ namespace cyclone
 		);
 		mMap[hashVec].push_back(collider);
 
+		const real boundingLength = collider->getBoundingLength();
+
 		// Check for overlap between neighboring grids
 		Vector3 axis[3] = {
 			{1,0,0}, {0,1,0}, {0,0,1}
 		};
-		for (auto a : axis)
+		for (Vector3& a : axis)
 		{
 			Vector3Int tempHashVec;
 			// check negative axis
-			Vector3 min = colliderPos + (a * -collider->getBoundingLength());
+			Vector3 min = colliderPos + (a * -boundingLength);
 			tempHashVec = {
 				(int)ceil(min.x * mInverseSpacing),
 				(int)ceil(min.y * mInverseSpacing),
@@ -35,7 +37,7 @@ namespace cyclone
 			if (tempHashVec != hashVec)
 				mMap[tempHashVec].push_back(collider);
 			// check positive axis
-			Vector3 max = colliderPos + (a * collider->getBoundingLength());
+			Vector3 max = colliderPos + (a * boundingLength);
 			tempHashVec = {
 				(int)ceil(max.x * mInverseSpacing),
 				(int)ceil(max.y * mInverseSpacing),
@@ -47,7 +49,10 @@ namespace cyclone
 	}
 	void SpacialHashing::clear()
 	{
-		mMap.clear();
+		for (auto& c : mMap)
+		{
+			c.second.clear();
+		}
 	}
 	void SpacialHashing::queryPossiblePairs(std::vector<std::pair<Collider*, Collider*>>& pairs)
 	{
