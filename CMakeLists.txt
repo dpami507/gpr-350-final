@@ -15,6 +15,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/libs)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/libs)
 
+add_definitions(-DGRAPHICS_API_OPENGL_43)
+
 add_subdirectory(cyclone)
 add_subdirectory(engine)
 add_subdirectory(vendor/raylib)
