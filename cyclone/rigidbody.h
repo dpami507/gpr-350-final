@@ -16,6 +16,7 @@ namespace cyclone
 		Matrix4 getTransformMatrix();
 
 		void setMass(real mass);
+		void setInvMass(real invmass);
 		void setInertiaTensor(const Matrix3& inertiaTensor);
 		inline void setAngularDaming(real daming) { mAngularDamping = daming; };
 		inline void setLinearDaming(real daming) { mLinearDamping = daming; };

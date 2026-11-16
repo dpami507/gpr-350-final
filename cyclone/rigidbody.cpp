@@ -56,6 +56,11 @@ void Rigidbody::setMass(real mass)
 	// If mass is in the 'no-no zone' then set it to zero
 	mInverseMass = (mass <= 0) ? 0 : 1.0f / mass;
 }
+void Rigidbody::setInvMass(real invmass)
+{
+	// If mass is in the 'no-no zone' then set it to zero
+	mInverseMass = invmass;
+}
 void Rigidbody::setInertiaTensor(const Matrix3& inertiaTensor)
 {
 	mInverseInertiaTensor = inertiaTensor.inverse();

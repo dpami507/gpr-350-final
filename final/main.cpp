@@ -56,6 +56,19 @@ int main() {
     Camera3D camera = { 0 };
     initCamera(camera);
 
+    Model sphereModel = LoadModelFromMesh(GenMeshSphere( 0.5f, 16, 16 ));
+
+    cyclone::CollisionData ColData;
+    ColData.init(32);
+
+    cyclone::GravityBody* PlanetDavid = new cyclone::GravityBody({ 0.0f, 0.0f, 20.0f }, 0.5f); //infinite life
+    cyclone::GravityBody* PlanetTetra = new cyclone::GravityBody({ 0.0f, 0.0f,-20.0f }, 0.5f); //unlivable
+
+    std::vector<cyclone::GravityBody*> planets;
+
+    planets.push_back(PlanetDavid);
+    planets.push_back(PlanetTetra);
+
     Debug::success() << "Application Started";
 
     while (!WindowShouldClose()) {
@@ -63,12 +76,31 @@ int main() {
         float deltaTime = GetFrameTime();
         handleInput(camera, deltaTime);
 
+        ColData.setToStart();
+
+        for (int i = 0; i < planets.size(); i++)
+        {
+            for (int j = i + 1; j < planets.size(); j++)
+            {
+                cyclone::GravityBody::calcGravForce(planets[i], planets[j]);
+                cyclone::CollisionTests::checkCollide(planets[i]->getCollider(), planets[j]->getCollider(), &ColData);
+            }
+        }
+
+        cyclone::ContactResolver::resolveContacts(ColData.getArray(), ColData.getCount(), deltaTime);
+
         //Drawing
         BeginDrawing();
 
         //3D mode draws objects in right handed vector space
         BeginMode3D(camera);
         ClearBackground(WHITE);
+
+        for (int i = 0; i < planets.size(); i++)
+        {
+            sphereModel.transform = ew::CTR(planets[i]->getTransform());
+            DrawModel(sphereModel, { 0,0,0 }, 1.0f, BLUE);
+        }
 
         DrawGrid(100, 1);
 

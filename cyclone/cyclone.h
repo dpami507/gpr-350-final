@@ -34,3 +34,5 @@
 
 #include "verletParticle.h"
 #include "rope.h"
+
+#include "gravityBody.h"
