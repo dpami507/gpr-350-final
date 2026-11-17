@@ -32,6 +32,9 @@ namespace cyclone
 		inline real getInverseMass() const { return mInverseMass; };
 		inline Quaternion getOrientation() const { return mOrientation; };
 		inline Vector3 getLinearVelocity() const { return mVelocity; };
+		// added for angular calculations
+		inline Vector3 getAngularVelocity() const { return mAngularVelocity; };
+		inline Matrix3 getWorldInvInerTensor() const { return mInverseInertiaTensorWorld; };
 
 	private:
 		Vector3 mPosition = Vector3();

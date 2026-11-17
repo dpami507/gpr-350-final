@@ -64,21 +64,21 @@ int main() {
     std::vector<cyclone::Collider*> colliders;
 
     cyclone::Rigidbody sphereBody1 = cyclone::Rigidbody();
-    cyclone::Rigidbody cubeBody1 = cyclone::Rigidbody();
+    cyclone::Rigidbody sphereBody2 = cyclone::Rigidbody();
 
     cyclone::SphereCollider sphereCollider1(&sphereBody1, cyclone::Matrix4(), _appSettings.sphereRadius);
     colliders.push_back(&sphereCollider1);
+    cyclone::SphereCollider sphereCollider2(&sphereBody2, cyclone::Matrix4(), _appSettings.sphereRadius);
+    colliders.push_back(&sphereCollider2);
     cyclone::PlaneCollider planeCollider1(nullptr, 0, { 0.0f,0.0f,1.0f });
     colliders.push_back(&planeCollider1);
-    cyclone::BoxCollider cubeCollider1(&cubeBody1, cyclone::Matrix4(), {1.f,1.f,1.f});
-    colliders.push_back(&cubeCollider1);
 
     cyclone::CollisionData worldData = cyclone::CollisionData();
     cyclone::ContactResolver worldResolver = cyclone::ContactResolver();
     worldResolver.setCOR(_appSettings.coeffRestitution);
     worldData.init((colliders.size() * (colliders.size() - 1)) / 2);
 
-    Model cubeModel = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
+    //Model cubeModel = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
     Model sphereModel = LoadModelFromMesh(GenMeshSphere(_appSettings.sphereRadius, 40, 40));
     Model planeModel = LoadModelFromMesh(GenMeshPlane(10.0f, 10.0f, 1, 1));
 
@@ -134,12 +134,6 @@ int main() {
         for (auto collider : colliders) {
             switch (collider->getType()) {
             case cyclone::ColliderType::Box:
-                if(collider->hasRigidbody())
-                    cubeModel.transform = ew::CTR(collider->getRigidbody()->getTransformMatrix());
-                else 
-                    cubeModel.transform = ew::CTR(collider->getTransform());
-                DrawModel(cubeModel, { 0,0,0 }, 1.0f, GREEN);
-                DrawModelWires(cubeModel, { 0,0,0 }, 1.0f, BLACK);
                 break;
             case cyclone::ColliderType::Sphere:
                 if (collider->hasRigidbody())

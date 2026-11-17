@@ -44,6 +44,8 @@ void ContactResolver::adjustPositions(cyclone::Contact* contactArray, unsigned i
 		}
 	}
 }
+
+// Angular Calculation upgrade derived from here: https://physics.stackexchange.com/questions/783524/angular-motion-in-collisions
 void ContactResolver::adjustVelocities(cyclone::Contact* contactArray, unsigned int numContacts, cyclone::real dt)
 {
 	for (int i = 0; i < numContacts; i++)
@@ -60,59 +62,40 @@ void ContactResolver::adjustVelocities(cyclone::Contact* contactArray, unsigned 
 		real invMaA = (rbA != nullptr) ? rbA->getInverseMass() : 0;
 		real invMaB = (rbB != nullptr) ? rbB->getInverseMass() : 0;
 
-		Vector3 relativeVelocity = velA - velB;
+		// calculate the vectors from the center of each object's mass to the contact point for angular collisions
+		Vector3 contactDiffA = (currentContact->mPoint - ((rbA != nullptr) ? rbA->getPos() : Vector3::ZERO));
+		Vector3 contactDiffB = (currentContact->mPoint - ((rbB != nullptr) ? rbB->getPos() : Vector3::ZERO));
 
-		real totalInverseMass = invMaA + invMaB;
-		if (totalInverseMass <= 0) continue; // skip if both are infinite mass
+		// contact velocity at the point of impact for taking into account angular velocity (3 on website):
+		Vector3 contactVelA = velA + ((rbA != nullptr) ? rbA->getAngularVelocity() : Vector3::ZERO) % contactDiffA;
+		Vector3 contactVelB = velB + ((rbB != nullptr) ? rbB->getAngularVelocity() : Vector3::ZERO) % contactDiffB;
 
-		// calculate seperating velocity (erm why is this working correctly)
-		real seperatingVelocity = relativeVelocity * currentContact->mNormal;
-		if (seperatingVelocity > 0) continue; // skip if we are going away from eachother
-		real seperatingVelocityRestitution = -seperatingVelocity * coefOfRestitution;
+		Vector3 relativeVelocity = contactVelA - contactVelB;
 
-		real deltaVelocity = seperatingVelocityRestitution - seperatingVelocity;
+		// to account for angular collision, we need to get the effective mass of the contact, aka the reduced mass of the system. This used to be total inv mass. (9 on website)
+		real effectiveInverseMass = invMaA + invMaB +
+			((contactDiffA % currentContact->mNormal) * (((rbA != nullptr) ? rbA->getWorldInvInerTensor() : Matrix3(0, 0, 0, 0, 0, 0, 0, 0, 0)) * (contactDiffA % currentContact->mNormal))) +
+			((contactDiffB % currentContact->mNormal) * (((rbB != nullptr) ? rbB->getWorldInvInerTensor() : Matrix3(0, 0, 0, 0, 0, 0, 0, 0, 0)) * (contactDiffB % currentContact->mNormal)));
+		if (effectiveInverseMass <= 0) continue; // skip if both are infinite mass
 
-		// calculate impulse
-		real impulseMagnitude = deltaVelocity / totalInverseMass;
-		Vector3 impulse = currentContact->mNormal * impulseMagnitude;
+		// calculate seperating velocity now with relation to angular velocity (6 on website)
+		real seperatingVelocity = currentContact->mNormal * relativeVelocity;
+		if (seperatingVelocity > 0) continue; // skip if the rigidbodies are already going away from each other
 
-		// apply
+		// calculate for both velocity and angular impulses
+		real impulseMagnitude = (-1.0f * (1.0f + coefOfRestitution) * seperatingVelocity) / effectiveInverseMass; // THIS is J throughout the website (8 specifically)
+		Vector3 vectorImpulse = currentContact->mNormal * impulseMagnitude;
+
+		// apply to linear velocity
 		if(rbA)
-			rbA->setLinearVelocity(velA + impulse * invMaA);
+			rbA->setLinearVelocity(velA + vectorImpulse * invMaA);
 		if (rbB)
-			rbB->setLinearVelocity(velB - impulse * invMaB);
+			rbB->setLinearVelocity(velB - vectorImpulse * invMaB);
 
-		// torque calculations after
-		// relate the two relative speeds with the coeff of restitution and get the impulse magnitude J
-
-
-		// calculate momentum torques to apply to each rigidbody
-
-
-		// apply to each rigidbody
-
-
-	}
-}
-
-// to check https://physics.stackexchange.com/questions/783524/angular-motion-in-collisions
-void ContactResolver::adjustTorques(cyclone::Contact* contactArray, unsigned int numContacts, cyclone::real dt) {
-	// we need the point of contact (stored in contact), mass, moment of inertia tensors, locations of each center of mass, and location of the contact point.
-	// 
-	for (int i = 0; i < numContacts; i++)
-	{
-		// saftey helpers
-		Contact* currentContact = contactArray + i;
-		Rigidbody* rbA = currentContact->mBodies[0];
-		Rigidbody* rbB = currentContact->mBodies[1];
-
-		// get speed of each body at point of contact
-
-		
-		// calculate change in speed due to collision
-
-
-		
-
+		// apply to angular velocity
+		if (rbA)
+			rbA->setAngularVelocity(rbA->getAngularVelocity() + (rbA->getWorldInvInerTensor() * (contactDiffA % vectorImpulse)));
+		if (rbB)
+			rbB->setAngularVelocity(rbB->getAngularVelocity() + (rbB->getWorldInvInerTensor() * (contactDiffB % (-vectorImpulse))));
 	}
 }
