@@ -13,6 +13,7 @@ namespace cyclone
 		void addForce(const Vector3& force);
 		void addTorque(const Vector3& torque);
 		void addForceAtPoint(const Vector3& force, const Vector3& point);
+		inline void addToAcceleration(const Vector3& addon) { mAcceleration += addon; };
 		Matrix4 getTransformMatrix();
 
 		void setMass(real mass);

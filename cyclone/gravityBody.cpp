@@ -30,10 +30,13 @@ namespace cyclone
 		real dist = diff.magnitude();
 		Vector3 dir = diff.unit();
 
-		real magnitude = GRAVCONST * ((a->getMass() * b->getMass()) / dist);
+		if (dist == 0) return;
 
-		a->mCol->getRigidbody()->addForce(-dir * magnitude);
-		b->mCol->getRigidbody()->addForce(dir * magnitude);
+		real aMagnitude = a->getMass() * (GRAVCONST * b->getMass()) / (dist*dist);
+		real bMagnitude = b->getMass() * (GRAVCONST * a->getMass()) / (dist*dist);
+
+		a->mCol->getRigidbody()->setAcceleration(-dir * aMagnitude);
+		b->mCol->getRigidbody()->setAcceleration(dir * bMagnitude);
 	}
 
 	void GravityBody::setInvMass(real invmass) 

@@ -21,6 +21,7 @@ using namespace engine;
 struct AppSettings {
 
     cyclone::real mPlanetoidRadius = 1.5f;
+    cyclone::real mPlanetoidMass = 10000000;
 
 }_appSettings;
 
@@ -64,10 +65,10 @@ int main() {
     cyclone::CollisionData ColData;
     ColData.init(32);
 
-    cyclone::Rigidbody* DavidRigidBody = new cyclone::Rigidbody({ 0.0f, 0.0f, 20.0f }, { 0,5,0 }, { 0,-1,0 }, 10.0f);
+    cyclone::Rigidbody* DavidRigidBody = new cyclone::Rigidbody({ 0.0f, 0.0f, 5.0f }, { 0,5,0 }, { 0,0,0 }, _appSettings.mPlanetoidMass);
     cyclone::SphereCollider* DavidCollider = new cyclone::SphereCollider(DavidRigidBody, cyclone::Matrix4(), _appSettings.mPlanetoidRadius);
     cyclone::GravityBody* PlanetDavid = new cyclone::GravityBody(DavidCollider);
-    cyclone::Rigidbody* TetraRigidBody = new cyclone::Rigidbody({ 0.0f, 0.0f, -20.0f }, { 0,-5,0 }, { 0,1,0 }, 10.0f);
+    cyclone::Rigidbody* TetraRigidBody = new cyclone::Rigidbody({ 0.0f, 0.0f, -5.0f }, { 0,-5,0 }, { 0,0,0 }, 1000);
     cyclone::SphereCollider* TetraCollider = new cyclone::SphereCollider(TetraRigidBody, cyclone::Matrix4(), _appSettings.mPlanetoidRadius);
     cyclone::GravityBody* PlanetTetra = new cyclone::GravityBody(TetraCollider);
 
@@ -130,11 +131,14 @@ int main() {
         ImGui::BeginDisabled();
 
         Vector3 ddp = ew::CTR(PlanetDavid->getAxis(3));
-        Vector3 ddtp = ew::CTR(PlanetDavid->getCollider()->getRigidbody()->getPos());
         Vector3 ddv = ew::CTR(PlanetDavid->getCollider()->getRigidbody()->getLinearVelocity());
         ImGui::DragFloat3("David Pos", &ddp.x);
-        ImGui::DragFloat3("David True Pos", &ddtp.x);
         ImGui::DragFloat3("David Vel", &ddv.x);
+
+        Vector3 ttp = ew::CTR(PlanetTetra->getAxis(3));
+        Vector3 ttv = ew::CTR(PlanetTetra->getCollider()->getRigidbody()->getLinearVelocity());
+        ImGui::DragFloat3("Tetra Pos", &ttp.x);
+        ImGui::DragFloat3("Tetra Vel", &ttv.x);
 
         ImGui::EndDisabled();
 
