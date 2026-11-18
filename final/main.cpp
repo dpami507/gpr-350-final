@@ -54,16 +54,6 @@ int main() {
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(1280, 720, "final countdown?!");
 
-    const char* glVersion = (const char*)glGetString(GL_VERSION);
-    const char* glRenderer = (const char*)glGetString(GL_RENDERER);
-
-    TraceLog(LOG_INFO, "Active OpenGL Version: %s", glVersion);
-    TraceLog(LOG_INFO, "GPU Renderer: %s", glRenderer);
-
-    char* rbLogicCode = LoadFileText("assets/rb.glsl");
-    unsigned int rbLogicShader = rlLoadShaderCode(rbLogicCode, RL_COMPUTE_SHADER);
-    unsigned int rbLogicProgram = rlLoadComputeShaderProgram(rbLogicShader);
-
     //Texture2D ballTex = LoadTexture("assets/joebiden.jpeg");
     Texture2D ballTex = LoadTexture("assets/vision.png");
 
@@ -78,7 +68,7 @@ int main() {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> rot(0, 6.28);
-    std::uniform_real_distribution<float> dist(100, 250);
+    std::uniform_real_distribution<float> dist(50, 250);
     std::uniform_real_distribution<float> height(-10, 10);
 
     std::vector<cyclone::SphereCollider> colliders;
@@ -91,11 +81,13 @@ int main() {
     }
     for (int i = 0; i < COUNT; i++)
     {
-        cyclone::SphereCollider newCol(&rbs[i], cyclone::Matrix4(), 0.5);
+        //cyclone::SphereCollider newCol(&rbs[i], cyclone::Matrix4(), 0.5);
+        cyclone::SphereCollider newCol(nullptr, cyclone::Matrix4(), 0.5);
 
         float angle = rot(gen);
         cyclone::Vector3 pos(cos(angle) * dist(gen), height(gen), sin(angle) * dist(gen));
-        rbs[i].setPosition(pos);
+        newCol.setOffset(pos);
+        //rbs[i].setPosition(pos);
 
         colliders.emplace_back(newCol);
     }
@@ -128,8 +120,8 @@ int main() {
         insertionTimer.start();
         for (cyclone::SphereCollider& c : colliders)
         {
-            c.getRigidbody()->setLinearVelocity(c.getRigidbody()->getPos().unit().crossProduct({0, 1, 0}) * 10);
-            c.getRigidbody()->integrate(deltaTime);
+            //c.getRigidbody()->setLinearVelocity(c.getRigidbody()->getPos().unit().crossProduct({0, 1, 0}) * 10);
+            //c.getRigidbody()->integrate(deltaTime);
             c.updateInternals();
             hashing.insert(&c);
         }
@@ -167,7 +159,6 @@ int main() {
 
         //Outside of 3D mode, we can draw 2D things directly to the screen in pixel coordinates
         DrawFPS(GetScreenWidth() - 128, 16);
-        DrawText(TextFormat("OpenGL Version: %s", glVersion), 20, 20, 20, DARKGRAY);
 
         //ImGUI
         rlImGuiBegin();
