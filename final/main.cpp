@@ -61,7 +61,7 @@ int main() {
     Camera3D camera = { 0 };
     initCamera(camera);
 
-
+    rlSetClipPlanes(0.1, 10000);
     Mesh sphereMesh = GenMeshSphere(1, 8, 8);
 
     char* shaderCode = LoadFileText("assets/particleCompute.glsl");
