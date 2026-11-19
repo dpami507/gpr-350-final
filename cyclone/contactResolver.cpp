@@ -4,6 +4,16 @@ using namespace cyclone;
 
 //real ContactResolver::coefOfRestitution = 0.5;
 
+void ContactResolver::prepareContacts(Contact* contactArray, unsigned numContacts, real deltaTime) {
+	// generate contact velocities and axis information for later calculations in code,.
+	Contact* lastContact = contactArray + numContacts;
+	for (Contact* contact = contactArray; contact < lastContact; contact++) {
+		// calculate the basic information for the angular resolution upgraded contacts
+		contact->calculateInternals(deltaTime);
+	}
+}
+
+
 void ContactResolver::resolveContacts(cyclone::Contact* contactArray, unsigned int numContacts, cyclone::real dt)
 {
 	if (numContacts == 0) return;

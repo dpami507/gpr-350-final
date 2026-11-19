@@ -36,6 +36,10 @@ namespace cyclone
 		inline Vector3 getLastFrameAcceleration() const { return mLastFrameAcceleration; }
 		inline Vector3 getAngularVelocity() const { return mAngularVelocity; };
 		inline Matrix3 getWorldInvInerTensor() const { return mInverseInertiaTensorWorld; };
+		// additional method of getting it that sets the parameter pointer as the relevant thing to get
+		inline void getWorldInvInerTensor(Matrix3* inverseInertiaTensor) const { *inverseInertiaTensor = mInverseInertiaTensorWorld; };
+		inline void getPos(Vector3* toBind) const { *toBind = mPosition; };
+		inline void getOrientation(Quaternion* toBind) const { *toBind = mOrientation; };
 
 		void calculateDerivedData();
 

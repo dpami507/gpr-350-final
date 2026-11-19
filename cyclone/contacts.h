@@ -27,6 +27,7 @@ namespace cyclone
 	protected:
 		// swap the two rigidbodies when it is called.
 		void swapBodies();
+
 		// calculate the internals of the contact from the data in here already. should be called before any resolution happens. never called manually.
 		void calculateInternals(real deltaTime);
 		// calculates and sets the internal value for the desired delta velocity
@@ -37,6 +38,11 @@ namespace cyclone
 		void calculateContactBasis();
 		// calculates the impulse neede to resolve the contact given there is no friction. to save time, we pass in an array pointer of both inverse inertia tensors
 		Vector3 calculateFrictionlessImpulse(Matrix3* inverseInertiaTensors);
+
+		// performs an inertia weighted impulse based resolution of this contact by itself
+		void applyVelocityChange(Vector3 velChange[2], Vector3 rotChange[2]);
+		// performs an inertia weighted penetration resolution of this contact by itself
+		void applyPositionChange(Vector3 linearChange[2], Vector3 angularChange[2], real penetration);
 
 	//protected:
 		// A transform matrix that converts coords in the contact's frame of refrence to world coords. the columns of this matrix form an orthonormal set of vectors.

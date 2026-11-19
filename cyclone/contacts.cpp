@@ -124,8 +124,170 @@ Vector3 Contact::calculateFrictionlessImpulse(Matrix3* inverseInertiaTensors) {
 	Vector3 impulseContact; // this will be the final impulse returned
 
 	// build a vector that shows the change in velocity in world space for a unit based impulse in the direction of the contact normal.
-	Vector3 deltaVelWorld = relativeContactPositions[];
+	Vector3 deltaVelWorld = relativeContactPositions[0] % mNormal;
+	deltaVelWorld = inverseInertiaTensors[0].transform(deltaVelWorld);
+	deltaVelWorld = deltaVelWorld % relativeContactPositions[0];
+
+	// work out the change in velocity in contact coords
+	real deltaVel = deltaVelWorld * mNormal;
+
+	// add the linear component of the velocity change
+	deltaVel += mBodies[0]->getInverseMass();
+
+	// do the second body's data too if it exists
+	if (mBodies[1]) {
+		// build a vector that shows the change in velocity in world space for a unit based impulse in the direction of the contact normal.
+		Vector3 deltaVelWorld2 = relativeContactPositions[1] % mNormal;
+		deltaVelWorld2 = inverseInertiaTensors[1].transform(deltaVelWorld2);
+		deltaVelWorld2 = deltaVelWorld2 % relativeContactPositions[1];
+
+		// work out the change in velocity in contact coords
+		deltaVel += deltaVelWorld2 * mNormal;
+
+		// add the linear component of the velocity change
+		deltaVel += mBodies[1]->getInverseMass();
+	}
+
+	// calculate the requried size of the impulse
+	impulseContact.x = desiredDeltaVel / deltaVel;
+	impulseContact.y = 0;
+	impulseContact.z = 0;
+	return impulseContact;
 }
+
+void Contact::applyVelocityChange(Vector3 velChange[2], Vector3 rotChange[2]) {
+	// get the world coords inverse mass and world coords inverse inertia tensor
+	Matrix3 inverseInertiaTensor[2];
+	mBodies[0]->getWorldInvInerTensor(&inverseInertiaTensor[0]); // doing it this way is easier and saves memory
+	if(mBodies[1]) mBodies[1]->getWorldInvInerTensor(&inverseInertiaTensor[1]);
+
+	// we will calculate the impulse for each contact axis
+	Vector3 impulseContact;
+	// if we ever decide to do friction related stuff for some reason in here, then we need to
+	// implement another calculateFrictionImpulse function, but for now we assume no friction
+	impulseContact = calculateFrictionlessImpulse(inverseInertiaTensor);
+
+	// convert the impulse calculated to world coordinates
+	Vector3 impulse = contactToWorld.transform(impulseContact);
+
+	// split the impulse into linear and rotation parts
+	Vector3 impulsiveTorque = relativeContactPositions[0] % impulse;
+	rotChange[0] = inverseInertiaTensor[0].transform(impulsiveTorque);
+	velChange[0].clear();
+	velChange[0].addScaledVector(impulse, mBodies[0]->getInverseMass());
+
+	// add the changes
+	mBodies[0]->addForce(velChange[0]);
+	mBodies[0]->addTorque(rotChange[0]);
+
+	// do the same to the second body if it exists
+	if (mBodies[1]) {
+		// split the impulse into linear and rotation parts
+		Vector3 impulsiveTorque2 = impulse % relativeContactPositions[1]; // flipped for 2nd body
+		rotChange[1] = inverseInertiaTensor[1].transform(impulsiveTorque2);
+		velChange[1].clear();
+		velChange[1].addScaledVector(impulse, -mBodies[1]->getInverseMass());
+
+		// add the changes
+		mBodies[1]->addForce(velChange[1]);
+		mBodies[1]->addTorque(rotChange[1]);
+	}
+}
+
+void Contact::applyPositionChange(Vector3 linearChange[2], Vector3 angularChange[2], real penetration) {
+	const real angularLimit = (real)0.2f;
+	real angularMove[2];
+	real linearMove[2];
+
+	real totalInertia = 0;
+	real linearInertia[2];
+	real angularInertia[2];
+
+	// we need to work out the inertia of each object in the direction of the contact normal, in respect to angular inertia only
+	// we are looping this to save from copying and pasting it twice
+	for (unsigned i = 0; i < 2; i++) {
+		if (mBodies[i]) {
+			Matrix3 inverseInertiaTensor;
+			mBodies[i]->getWorldInvInerTensor(&inverseInertiaTensor);
+
+			// use the same method for calculating frictionless velocity change to find the angular inertia
+			Vector3 angularInertiaWorld = relativeContactPositions[i] % mNormal;
+			angularInertiaWorld = inverseInertiaTensor.transform(angularInertiaWorld);
+			angularInertiaWorld = angularInertiaWorld % relativeContactPositions[i];
+
+			angularInertia[i] = angularInertiaWorld * mNormal;
+
+			// the linear component of this is just the inverse mass
+			linearInertia[i] = mBodies[i]->getInverseMass();
+
+			totalInertia += linearInertia[i] + angularInertia[i];
+		}
+	}
+
+	// next loop through again to calculate and apply the changes
+	for (unsigned i = 0; i < 2; i++) {
+		if (mBodies[i]) {
+			// the linear and angular movements required are in proportion to the two inverse intertias
+			real isOtherDir = (i == 0) ? 1 : -1; // negative if it is the other body
+			angularMove[i] = isOtherDir * penetration * (angularInertia[i] / totalInertia);
+			linearMove[i] = isOtherDir * penetration * (linearInertia[i] / totalInertia);
+
+			// limit the angular movement to avoid angular projections that are too great
+			Vector3 projection = relativeContactPositions[i];
+			projection.addScaledVector(mNormal, -relativeContactPositions[i].scalarProduct(mNormal));
+
+			// use a small angle approximation for the sine of the angle, the magnitude would be sine(angularLimit) * projection.magnitude but we approximate the sine of angular limit to just angularLimit save memory
+			real maxMagnitude = angularLimit * projection.magnitude();
+			
+			if (angularMove[i] < -maxMagnitude) {
+				real totalMove = angularMove[i] + linearMove[i];
+				angularMove[i] = -maxMagnitude;
+				linearMove[i] = totalMove - angularMove[i];
+			}
+			else if (angularMove[i] > maxMagnitude) {
+				real totalMove = angularMove[i] + linearMove[i];
+				angularMove[i] = maxMagnitude;
+				linearMove[i] = totalMove - angularMove[i];
+			}
+
+			// we have the linear amount of movement required by turning the body in angularMove[i], so we now need to calculate the desired rotation to achieve that
+			if (angularMove[i] == 0) {
+				// no movement is no rotation
+				angularChange[i].clear();
+			}
+			else {
+				// find the directiion we would want to rotate in
+				Vector3 targetAngularDirection = relativeContactPositions[i].vectorProduct(mNormal);
+				Matrix3 inverseInertiaTensor;
+				mBodies[i]->getWorldInvInerTensor(&inverseInertiaTensor);
+				// find the direction we need to rotate that
+				angularChange[i] = inverseInertiaTensor.transform(targetAngularDirection) * (angularMove[i] / angularInertia[i]); 
+			}
+
+			// velocity change is just the linear movement along the contact normal
+			linearChange[i] = mNormal * linearMove[i];
+
+			// now apply the values
+			// linear applying
+			Vector3 pos;
+			mBodies[i]->getPos(&pos);
+			pos.addScaledVector(mNormal, linearMove[i]);
+			mBodies[i]->setPosition(pos);
+
+			// angular applying
+			Quaternion q; 
+			mBodies[i]->getOrientation(&q);
+			q.addScaledVector(angularChange[i], ((real)1.0f));
+			mBodies[i]->setOrientation(q);
+
+			// update the derived data
+			mBodies[i]->calculateDerivedData();
+		}
+	}
+}
+
+
+
 
 
 // Functions for each type of collision
