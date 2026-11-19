@@ -21,7 +21,11 @@ using namespace engine;
 struct AppSettings {
 
     cyclone::real mPlanetoidRadius = 1.5f;
-    cyclone::real mPlanetoidMass = 10000000;
+    cyclone::real mDavidMass = pow(10,9);
+    cyclone::real mTetraMass = pow(10,4);
+    cyclone::real mJaceMass = pow(10,6);
+    cyclone::real mPlanetoidLinDamping = 1.0f;
+    cyclone::real mPlanetoidAngDamping = 1.0f;
 
 }_appSettings;
 
@@ -65,17 +69,24 @@ int main() {
     cyclone::CollisionData ColData;
     ColData.init(32);
 
-    cyclone::Rigidbody* DavidRigidBody = new cyclone::Rigidbody({ 0.0f, 0.0f, 5.0f }, { 0,5,0 }, { 0,0,0 }, _appSettings.mPlanetoidMass);
+    cyclone::Rigidbody* DavidRigidBody = new cyclone::Rigidbody({ 0.0f, 0.0f, 0.0f }, { 0,0,0 }, { 0,0,0 },
+        _appSettings.mDavidMass, _appSettings.mPlanetoidLinDamping, _appSettings.mPlanetoidAngDamping);
     cyclone::SphereCollider* DavidCollider = new cyclone::SphereCollider(DavidRigidBody, cyclone::Matrix4(), _appSettings.mPlanetoidRadius);
     cyclone::GravityBody* PlanetDavid = new cyclone::GravityBody(DavidCollider);
-    cyclone::Rigidbody* TetraRigidBody = new cyclone::Rigidbody({ 0.0f, 0.0f, -5.0f }, { 0,-5,0 }, { 0,0,0 }, 1000);
-    cyclone::SphereCollider* TetraCollider = new cyclone::SphereCollider(TetraRigidBody, cyclone::Matrix4(), _appSettings.mPlanetoidRadius);
+    cyclone::Rigidbody* TetraRigidBody = new cyclone::Rigidbody({ 0.0f, 0.0f, -50.0f }, { 25,0,0 }, { 0,0,0 },
+        _appSettings.mTetraMass, _appSettings.mPlanetoidLinDamping, _appSettings.mPlanetoidAngDamping);
+    cyclone::SphereCollider* TetraCollider = new cyclone::SphereCollider(TetraRigidBody, cyclone::Matrix4(),_appSettings.mPlanetoidRadius);
     cyclone::GravityBody* PlanetTetra = new cyclone::GravityBody(TetraCollider);
+    cyclone::Rigidbody* JaceRigidBody = new cyclone::Rigidbody({ 0.0f, 0.0f, -25.0f }, { 50,0,0 }, { 0,0,0 },
+        _appSettings.mJaceMass, _appSettings.mPlanetoidLinDamping, _appSettings.mPlanetoidAngDamping);
+    cyclone::SphereCollider* JaceCollider = new cyclone::SphereCollider(JaceRigidBody, cyclone::Matrix4(),_appSettings.mPlanetoidRadius);
+    cyclone::GravityBody* PlanetJace = new cyclone::GravityBody(JaceCollider);
 
     std::vector<cyclone::GravityBody*> planets;
 
     planets.push_back(PlanetDavid);
     planets.push_back(PlanetTetra);
+    planets.push_back(PlanetJace);
 
     Debug::success() << "Application Started";
 
@@ -139,6 +150,11 @@ int main() {
         Vector3 ttv = ew::CTR(PlanetTetra->getCollider()->getRigidbody()->getLinearVelocity());
         ImGui::DragFloat3("Tetra Pos", &ttp.x);
         ImGui::DragFloat3("Tetra Vel", &ttv.x);
+
+        Vector3 jjp = ew::CTR(PlanetJace->getAxis(3));
+        Vector3 jjv = ew::CTR(PlanetJace->getCollider()->getRigidbody()->getLinearVelocity());
+        ImGui::DragFloat3("Jace Pos", &jjp.x);
+        ImGui::DragFloat3("Jace Vel", &jjv.x);
 
         ImGui::EndDisabled();
 

@@ -6,7 +6,8 @@
 namespace cyclone
 {
 
-	const static real GRAVCONST = 6.67 * pow(10, -11);
+	//reduced by a factor of 10^6
+	const static real GRAVCONST = 6.67 * pow(10, -5);
 
 	class GravityBody
 	{
@@ -30,7 +31,6 @@ namespace cyclone
 		void setMass(real mass);
 		real getInvMass();
 		real getMass();
-		void updateColMass();
 
 		Matrix4 getTransform() { return mCol->getTransform(); }
 		Collider* getCollider() { return mCol; }
@@ -38,8 +38,6 @@ namespace cyclone
 	private:
 
 		SphereCollider* mCol;
-		real mInvMass;
-		static real mForceRange;
 
 	};
 

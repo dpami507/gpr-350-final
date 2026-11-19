@@ -5,17 +5,14 @@ namespace cyclone
 	GravityBody::GravityBody()
 	{
 		Rigidbody* rb = new Rigidbody();
-		mInvMass = rb->getInverseMass();
 		mCol = new SphereCollider(rb, Matrix4(), 0.5);
 	}
 	GravityBody::GravityBody(SphereCollider* sphereCol) :mCol(sphereCol)
 	{
-		mInvMass = sphereCol->getRigidbody()->getInverseMass();
 	}
 	GravityBody::GravityBody(Vector3 pos, real radius)
 	{
 		Rigidbody* rb = new Rigidbody(pos);
-		mInvMass = rb->getInverseMass();
 		mCol = new SphereCollider(rb, Matrix4(), radius);
 	}
 
@@ -35,30 +32,25 @@ namespace cyclone
 		real aMagnitude = a->getMass() * (GRAVCONST * b->getMass()) / (dist*dist);
 		real bMagnitude = b->getMass() * (GRAVCONST * a->getMass()) / (dist*dist);
 
-		a->mCol->getRigidbody()->setAcceleration(-dir * aMagnitude);
-		b->mCol->getRigidbody()->setAcceleration(dir * bMagnitude);
+		a->mCol->getRigidbody()->addForce(-dir * aMagnitude);
+		b->mCol->getRigidbody()->addForce(dir * bMagnitude);
 	}
 
 	void GravityBody::setInvMass(real invmass) 
 	{
-		mInvMass = invmass;
-		updateColMass();
+		mCol->getRigidbody()->setInvMass(invmass);
 	}
 	void GravityBody::setMass(real mass)
 	{
-		mInvMass = (mass != 0) ? 1 / mass : 0;
-		updateColMass();
+		mCol->getRigidbody()->setInvMass((mass != 0) ? 1 / mass : 0);
 	}
 	real GravityBody::getInvMass()
 	{
-		return mInvMass;
+		return mCol->getRigidbody()->getInverseMass();
 	}
 	real GravityBody::getMass()
 	{
-		return (mInvMass != 0) ? 1 / mInvMass : 0;
-	}
-	void GravityBody::updateColMass()
-	{
-		mCol->getRigidbody()->setInvMass(mInvMass);
+		real invmass = mCol->getRigidbody()->getInverseMass();
+		return (invmass != 0) ? 1 / invmass : 0;
 	}
 }
