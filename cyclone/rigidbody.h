@@ -33,8 +33,11 @@ namespace cyclone
 		inline Quaternion getOrientation() const { return mOrientation; };
 		inline Vector3 getLinearVelocity() const { return mVelocity; };
 		// added for angular calculations
+		inline Vector3 getLastFrameAcceleration() const { return mLastFrameAcceleration; }
 		inline Vector3 getAngularVelocity() const { return mAngularVelocity; };
 		inline Matrix3 getWorldInvInerTensor() const { return mInverseInertiaTensorWorld; };
+
+		void calculateDerivedData();
 
 	private:
 		Vector3 mPosition = Vector3();
@@ -43,6 +46,8 @@ namespace cyclone
 		real mLinearDamping = 0.995;
 		real mInverseMass = 1;
 		Vector3 mForceAccum = Vector3();
+		// keep the last frame's acceleration for new calculations
+		Vector3 mLastFrameAcceleration;
 
 		Quaternion mOrientation = Quaternion();
 		Vector3 mAngularVelocity = Vector3();
@@ -53,7 +58,6 @@ namespace cyclone
 		Matrix4 mTransformMatrix = Matrix4();
 
 		void clearAccumulators();
-		void calculateDerivedData();
 		void calculateInertiaTensor();
 	};
 }

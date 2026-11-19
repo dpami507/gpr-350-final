@@ -2,14 +2,14 @@
 
 using namespace cyclone;
 
-real ContactResolver::coefOfRestitution = 0.5;
+//real ContactResolver::coefOfRestitution = 0.5;
 
 void ContactResolver::resolveContacts(cyclone::Contact* contactArray, unsigned int numContacts, cyclone::real dt)
 {
 	if (numContacts == 0) return;
 
-	adjustPositions(contactArray, numContacts, dt);
 	adjustVelocities(contactArray, numContacts, dt);
+	adjustPositions(contactArray, numContacts, dt);
 }
 void ContactResolver::adjustPositions(cyclone::Contact* contactArray, unsigned int numContacts, cyclone::real dt)
 {
@@ -83,7 +83,7 @@ void ContactResolver::adjustVelocities(cyclone::Contact* contactArray, unsigned 
 		if (seperatingVelocity > 0) continue; // skip if the rigidbodies are already going away from each other
 
 		// calculate for both velocity and angular impulses
-		real impulseMagnitude = (-1.0f * (1.0f + coefOfRestitution) * seperatingVelocity) / effectiveInverseMass; // THIS is J throughout the website (8 specifically)
+		real impulseMagnitude = (-1.0f * (1.0f + currentContact->mCoeffRest) * seperatingVelocity) / effectiveInverseMass; // THIS is J throughout the website (8 specifically)
 		Vector3 vectorImpulse = currentContact->mNormal * impulseMagnitude;
 
 		// apply to linear velocity
@@ -97,5 +97,10 @@ void ContactResolver::adjustVelocities(cyclone::Contact* contactArray, unsigned 
 			rbA->setAngularVelocity(rbA->getAngularVelocity() + (rbA->getWorldInvInerTensor() * (contactDiffA % vectorImpulse)));
 		if (rbB)
 			rbB->setAngularVelocity(rbB->getAngularVelocity() + (rbB->getWorldInvInerTensor() * (contactDiffB % (-vectorImpulse))));
+
+		if (rbA)
+			rbA->calculateDerivedData();
+		if (rbB)
+			rbB->calculateDerivedData();
 	}
 }

@@ -6,6 +6,7 @@ Rigidbody::Rigidbody(Vector3 pos, Vector3 vel, Vector3 accel, real mass, real li
 	: mPosition(pos), mVelocity(vel), mAcceleration(accel), mLinearDamping(linearDaming), mAngularDamping(angularDamping)
 {
 	setMass(mass);
+	calculateDerivedData();
 }
 
 Vector3 Rigidbody::orientationToAngleAxis()
@@ -18,6 +19,8 @@ Vector3 Rigidbody::orientationToAngleAxis()
 
 void Rigidbody::integrate(real dt)
 {
+	mLastFrameAcceleration = mAcceleration;
+	mLastFrameAcceleration.addScaledVector(mForceAccum, mInverseMass); // if this isn't enough, may need to rewrite this function to match the book's integrate
 	// Skip integrating things with infinite mass
 	if (mInverseMass > 0.0f)
 	{
