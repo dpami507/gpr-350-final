@@ -66,8 +66,10 @@ namespace cyclone
 		void cleanup();
 		inline void setToStart() { mContactCount = 0; };
 		inline void setCoeffRestitution(real newCoeff) { mCoeffRestitution = newCoeff; };
+		inline void setFriction(real newFric) { mFriction = newFric; };
 
 		inline real getCoeffRestitution() const { return mCoeffRestitution; };
+		inline real getFriction() const { return mFriction; };
 		inline unsigned int getCount() const { return mContactCount; };
 		inline Contact* getArray() const { return mContactArray; };
 		inline Contact* getNextContact() const { return mContactArray + mContactCount; };
@@ -77,8 +79,9 @@ namespace cyclone
 		int mContactCount;		//Amount of contacts found so far
 		int mMaxContacts;		//Amount of contacts remaining
 		bool isInit = false;
-		// for giving the contacts the coeff of restitution
+		// for giving the contacts the coeff of restitution and friction
 		real mCoeffRestitution;
+		real mFriction;
 	};
 	class CollisionTests
 	{

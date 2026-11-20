@@ -20,6 +20,7 @@ using namespace engine;
 
 struct AppSettings {
     cyclone::real cor = 0.5;
+    cyclone::real friction = 0.5f;
 
     bool useOctree = true;
     bool optimize = true;
@@ -278,6 +279,7 @@ int main() {
 
     cyclone::CollisionData* data = new cyclone::CollisionData();
     data->setCoeffRestitution(_appSettings.cor); // this could cause problems but probably works fine
+    data->setFriction(_appSettings.friction);
     data->init(MAX_COLLISIONS);
 
     // Create Octree

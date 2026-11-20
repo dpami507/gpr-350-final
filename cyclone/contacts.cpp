@@ -232,9 +232,10 @@ void Contact::applyVelocityChange(Vector3 velChange[2], Vector3 rotChange[2]) {
 
 	// we will calculate the impulse for each contact axis
 	Vector3 impulseContact;
-	// if we ever decide to do friction related stuff for some reason in here, then we need to
-	// implement another calculateFrictionImpulse function, but for now we assume no friction
-	impulseContact = calculateFrictionlessImpulse(inverseInertiaTensor);
+
+	// If we have friction, then do a friction calculation. otherwise, frictionless
+	if (mFriction <= 0.f) impulseContact = calculateFrictionlessImpulse(inverseInertiaTensor);
+	else impulseContact = calculateFrictionImpulse(inverseInertiaTensor);
 
 	// convert the impulse calculated to world coordinates
 	Vector3 impulse = contactToWorld.transform(impulseContact);
@@ -432,6 +433,7 @@ int CollisionTests::SphereSphereCollide(const SphereCollider& a, const SphereCol
 	contact->mBodies[0] = a.getRigidbody();
 	contact->mBodies[1] = b.getRigidbody();
 	contact->mCoeffRest = data->getCoeffRestitution();
+	contact->mFriction = data->getFriction();
 
 	data->incrementToNext();
 	return 1;
