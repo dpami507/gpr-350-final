@@ -73,6 +73,7 @@ void initSpheres(std::vector<cyclone::Collider*>& colliders)
         cyclone::SphereCollider* sphereCollider = new cyclone::SphereCollider(newRigidbody, cyclone::Matrix4(), 0.5);
         newRigidbody->setInertiaTensor(cyclone::getSphereInertiaTensor(newRigidbody->getMass(), sphereCollider->getRadius()));
         newRigidbody->setAcceleration({ 0, -9.81, 0 });
+        //newRigidbody->setAngularVelocity({2,3,1});
         newRigidbody->setOrientation(cyclone::eulerToQuaternion(ori));
 
         colliders.push_back(sphereCollider);
@@ -272,7 +273,7 @@ int main() {
     std::vector<cyclone::Collider*> walls;
     initWalls(walls);
 
-    cyclone::ContactResolver* resolver = new cyclone::ContactResolver();
+    cyclone::ContactResolver* resolver = new cyclone::ContactResolver(20, 0.01f, 0.01f);
     //resolver->setCOR(_appSettings.cor);
 
     cyclone::CollisionData* data = new cyclone::CollisionData();

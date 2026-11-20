@@ -155,6 +155,75 @@ Vector3 Contact::calculateFrictionlessImpulse(Matrix3* inverseInertiaTensors) {
 	return impulseContact;
 }
 
+Vector3 Contact::calculateFrictionImpulse(Matrix3* inverseInertiaTensors) {
+	Vector3 impulseContact;
+	real inverseMass = mBodies[0]->getInverseMass();
+
+	// the equivalent of a cross product in matricies is multiplication by a skew symmetric matrix, so we build the matrix
+	// for converting between linear and angular quantities
+	Matrix3 impulseToTorque;
+	impulseToTorque.setSkewSymmetric(relativeContactPositions[0]);
+
+	// Build the matrix to convert contact impulse to a change in velocity in world coords.
+	Matrix3 deltaVelWorld = impulseToTorque;
+	deltaVelWorld *= inverseInertiaTensors[0];
+	deltaVelWorld *= impulseToTorque;
+	deltaVelWorld *= -1;
+
+	// check if we need to add the second body's data
+	if (mBodies[1]) {
+		// set the cross product matrix
+		impulseToTorque.setSkewSymmetric(relativeContactPositions[1]);
+
+		// calculate the velocity change matrix
+		Matrix3 deltaVelWorld2 = impulseToTorque;
+		deltaVelWorld2 *= inverseInertiaTensors[1];
+		deltaVelWorld2 *= impulseToTorque;
+		deltaVelWorld2 *= -1;
+
+		// add to the total delta velocity
+		deltaVelWorld += deltaVelWorld2;
+
+		// add to the inverse mass
+		inverseMass += mBodies[1]->getInverseMass();
+	}
+
+	// change the basis to convert to contact coordinates
+	Matrix3 deltaVel = contactToWorld.transpose();
+	deltaVel *= deltaVelWorld;
+	deltaVel *= contactToWorld;
+	
+	// add the linear velocity change
+	deltaVel.data[0] += inverseMass;
+	deltaVel.data[4] += inverseMass;
+	deltaVel.data[8] += inverseMass;
+
+	// Invert to get the impulse per unit
+	Matrix3 impulseMatrix = deltaVel.inverse();
+
+	// find the target velocities to completely stop the movement of
+	Vector3 velToStop(desiredDeltaVel, -contactVelocity.y, -contactVelocity.z);
+
+	// find the impulse to stop the target velocities
+	impulseContact = impulseMatrix.transform(velToStop);
+
+	// check for extra friction
+	real planarImpulse = real_sqrt(impulseContact.y * impulseContact.y * impulseContact.z * impulseContact.z);
+	if (planarImpulse > impulseContact.x * mFriction) {
+		 // use dynamic friction
+		impulseContact.y /= planarImpulse;
+		impulseContact.z /= planarImpulse;
+
+		impulseContact.x = deltaVel.data[0] +
+			deltaVel.data[1] * mFriction * impulseContact.y +
+			deltaVel.data[2] * mFriction * impulseContact.z;
+		impulseContact.x = desiredDeltaVel / impulseContact.x;
+		impulseContact.y *= mFriction * impulseContact.x;
+		impulseContact.z *= mFriction * impulseContact.x;
+	}
+	return impulseContact;
+}
+
 void Contact::applyVelocityChange(Vector3 velChange[2], Vector3 rotChange[2]) {
 	// get the world coords inverse mass and world coords inverse inertia tensor
 	Matrix3 inverseInertiaTensor[2];
@@ -177,8 +246,11 @@ void Contact::applyVelocityChange(Vector3 velChange[2], Vector3 rotChange[2]) {
 	velChange[0].addScaledVector(impulse, mBodies[0]->getInverseMass());
 
 	// add the changes
-	mBodies[0]->addForce(velChange[0]);
-	mBodies[0]->addTorque(rotChange[0]);
+	mBodies[0]->setLinearVelocity(mBodies[0]->getLinearVelocity() + velChange[0]);
+	mBodies[0]->setAngularVelocity(mBodies[0]->getAngularVelocity() + rotChange[0]);
+
+	//mBodies[0]->addForce(velChange[0]); these are wrong
+	//mBodies[0]->addTorque(rotChange[0]);
 
 	// do the same to the second body if it exists
 	if (mBodies[1]) {
@@ -189,8 +261,8 @@ void Contact::applyVelocityChange(Vector3 velChange[2], Vector3 rotChange[2]) {
 		velChange[1].addScaledVector(impulse, -mBodies[1]->getInverseMass());
 
 		// add the changes
-		mBodies[1]->addForce(velChange[1]);
-		mBodies[1]->addTorque(rotChange[1]);
+		mBodies[1]->setLinearVelocity(mBodies[1]->getLinearVelocity() + velChange[1]);
+		mBodies[1]->setAngularVelocity(mBodies[1]->getAngularVelocity() + rotChange[1]);
 	}
 }
 
@@ -349,7 +421,7 @@ int CollisionTests::SphereSphereCollide(const SphereCollider& a, const SphereCol
 	Vector3 normal = offset.unit();
 
 	// get intersection point
-	Vector3 point = a.getAxis(3) - (offset / 2);
+	Vector3 point = a.getAxis(3) - normal * a.getRadius();
 
 	// generate contact
 	Contact* contact = data->getNextContact();
@@ -373,7 +445,7 @@ int CollisionTests::SpherePlaneCollide(const SphereCollider& a, const PlaneColli
 
 	// Get Penetration and intersection point
 	real penetration = -distance;
-	Vector3 point = a.getAxis(3) - (b.getNormal() * distance);
+	Vector3 point = a.getAxis(3) - b.getNormal() * (distance + a.getRadius());
 
 	// generate contact
 	Contact* contact = data->getNextContact();
@@ -402,11 +474,16 @@ void CollisionData::init(unsigned int maxContacts)
 void CollisionData::cleanup()
 {
 	if (!isInit) return;
-	free(mContactArray);
+	//free(mContactArray); // this is causing crashes
+	delete[] mContactArray;
+	mContactArray = nullptr;
+	mContactCount = 0;
+	mMaxContacts = 0;
+	isInit = false;
 }
 void CollisionData::incrementToNext()
 {
-	if (mContactCount > mMaxContacts)
+	if (mContactCount >= mMaxContacts)
 	{
 		std::cerr << "ERR// no more contacts left, contacts will be overridded\n";
 		return;

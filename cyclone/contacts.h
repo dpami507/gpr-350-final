@@ -23,6 +23,7 @@ namespace cyclone
 		real mPenetration = 0;
 		// needed here for math
 		real mCoeffRest;
+		real mFriction; // SET THIS SOMEWHERE
 
 	protected:
 		// swap the two rigidbodies when it is called.
@@ -38,6 +39,8 @@ namespace cyclone
 		void calculateContactBasis();
 		// calculates the impulse neede to resolve the contact given there is no friction. to save time, we pass in an array pointer of both inverse inertia tensors
 		Vector3 calculateFrictionlessImpulse(Matrix3* inverseInertiaTensors);
+		// calculates the impulse neede to resolve the contact given there is friction. to save time, we pass in an array pointer of both inverse inertia tensors
+		Vector3 calculateFrictionImpulse(Matrix3* inverseInertiaTensors);
 
 		// performs an inertia weighted impulse based resolution of this contact by itself
 		void applyVelocityChange(Vector3 velChange[2], Vector3 rotChange[2]);
