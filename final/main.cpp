@@ -20,9 +20,17 @@
 using namespace engine;
 
 struct AppSettings {
+    cyclone::real cor = 0.5;
+    cyclone::real friction = 0.5f;
+
+    bool useOctree = true;
+    bool optimize = true;
 }_appSettings;
 
-const int COUNT = 100000;
+const int BALL_COUNT = 16384; //1024, 2048, 4096, 8192, 16384, 32768;
+const int ROOM_SIZE = 10;
+const int MAX_COLLISIONS = 500000;
+const int CELL_SIZE = 2;
 
 void initCamera(Camera& camera)
 {
@@ -47,12 +55,27 @@ void handleInput(Camera& camera, cyclone::real dt)
     }
 }
 
+void draw(const std::vector<cyclone::Collider*>& colliders, Model* model)
+{
+    // draw
+    for (auto c : colliders)
+    {
+        model->transform = ew::CTR(c->getTransform());
+        DrawModel(*model, { 0, 0, 0 }, 1, (c->getType() == cyclone::ColliderType::Plane) ? GRAY : (c->getOverlapCount() > 0) ? RED : BLUE);
+        DrawModelWires(*model, { 0, 0, 0 }, 1, BLACK);
+    }
+}
+void drawInstanced(const Mesh& mesh, const Material& mat, const Matrix* transforms, int instances)
+{
+    DrawMeshInstanced(mesh, mat, transforms, instances);
+}
+
 int main() {
-   // Initialization \
-   --------------------------------------------------------------------------------------
-    
+    // Initialization \
+    --------------------------------------------------------------------------------------
+
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
-    InitWindow(1280, 720, "final countdown?!");
+    InitWindow(1280, 720, "octing some trees");
 
     //Texture2D ballTex = LoadTexture("assets/joebiden.jpeg");
     Texture2D ballTex = LoadTexture("assets/vision.png");
@@ -68,80 +91,95 @@ int main() {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> rot(0, 6.28);
-    std::uniform_real_distribution<float> dist(50, 250);
-    std::uniform_real_distribution<float> height(-10, 10);
+    std::uniform_real_distribution<float> dist(1, 150);
+    std::uniform_real_distribution<float> height(-5, 5);
 
+    // Optimization
+    cyclone::SpacialHashing hashing(CELL_SIZE);
+
+    // Create Planets
     std::vector<cyclone::SphereCollider> colliders;
     std::vector<cyclone::Rigidbody> rbs;
 
-    for (int i = 0; i < COUNT; i++)
+    for (int i = 0; i < BALL_COUNT; i++)
     {
         cyclone::Rigidbody newRb = cyclone::Rigidbody();
         rbs.emplace_back(newRb);
     }
-    for (int i = 0; i < COUNT; i++)
+    for (int i = 0; i < BALL_COUNT; i++)
     {
-        //cyclone::SphereCollider newCol(&rbs[i], cyclone::Matrix4(), 0.5);
-        cyclone::SphereCollider newCol(nullptr, cyclone::Matrix4(), 0.5);
+        cyclone::SphereCollider newCol(&rbs[i], cyclone::Matrix4(), 0.5);
 
         float angle = rot(gen);
         cyclone::Vector3 pos(cos(angle) * dist(gen), height(gen), sin(angle) * dist(gen));
-        newCol.setOffset(pos);
-        //rbs[i].setPosition(pos);
+        rbs[i].setPosition(pos);
+        rbs[i].setLinearVelocity(-pos.unit() * 10);
 
         colliders.emplace_back(newCol);
     }
-
-    cyclone::CollisionData data;
-    data.init(50000);
-    cyclone::ContactResolver resolver;
-    resolver.setCOR(0.95);
-
-    cyclone::SpacialHashing hashing(3);
 
     rlImGuiSetup(true);
 
     Camera3D camera = { 0 };
     initCamera(camera);
 
+    cyclone::ContactResolver* resolver = new cyclone::ContactResolver(20, 0.01f, 0.01f);
+    cyclone::CollisionData* data = new cyclone::CollisionData();
+    data->setCoeffRestitution(_appSettings.cor); // this could cause problems but probably works fine
+    data->setFriction(_appSettings.friction);
+    data->init(MAX_COLLISIONS);
+
     Debug::success() << "Application Started";
 
+    Timer collisionTimer;
     Timer insertionTimer;
-    Timer collideTimer;
 
     while (!WindowShouldClose()) {
         //Seconds between previous frame and this one
         float deltaTime = GetFrameTime();
         handleInput(camera, deltaTime);
 
-        data.setToStart();
-        hashing.clear();
-
-        insertionTimer.start();
-        for (cyclone::SphereCollider& c : colliders)
+        // update rigidbody
+        for (cyclone::Rigidbody& rb : rbs)
         {
-            //c.getRigidbody()->setLinearVelocity(c.getRigidbody()->getPos().unit().crossProduct({0, 1, 0}) * 10);
-            //c.getRigidbody()->integrate(deltaTime);
+            rb.integrate(deltaTime);
+        }
+        // update internals
+        for (cyclone::Collider& c : colliders)
+        {
             c.updateInternals();
+        }
+
+        std::cout << data->getCount() << '\n';
+        data->setToStart();
+        
+        // clear map and insert
+        insertionTimer.start();
+        hashing.clear();
+        for (cyclone::Collider& c : colliders)
+        {
             hashing.insert(&c);
         }
         insertionTimer.stop();
 
-        collideTimer.start();
+        // query collisions
+        collisionTimer.start();
         std::vector<std::pair<cyclone::Collider*, cyclone::Collider*>> pairs;
         hashing.queryPossiblePairs(pairs);
-        for (int i = 0; i < pairs.size(); i++)
+        for (auto& p : pairs)
         {
-            cyclone::CollisionTests::checkCollide(pairs[i].first, pairs[i].second, &data);
+            // check for overlap
+            bool hit = cyclone::CollisionTests::checkCollide(p.first, p.second, data);
+            if (hit)
+            {
+                p.first->incrementOverlapCount();
+                p.second->incrementOverlapCount();
+            }
         }
-        resolver.resolveContacts(data.getArray(), data.getCount(), deltaTime);
-        collideTimer.stop();
+        collisionTimer.stop();
 
-        Matrix* sphereMatricies = (Matrix*)MemAlloc(COUNT * sizeof(Matrix));
-        for (int i = 0; i < COUNT; i++)
-        {
-            sphereMatricies[i] = ew::CTR(colliders[i].getTransform());
-        }
+        // resolve
+        resolver->resolveContacts(data->getArray(), data->getCount(), deltaTime);
 
         //Drawing
         BeginDrawing();
@@ -150,34 +188,45 @@ int main() {
         BeginMode3D(camera);
         ClearBackground(WHITE);
 
-        DrawMeshInstanced(sphereMesh, sphereMaterial, sphereMatricies, COUNT);
-        MemFree(sphereMatricies);
+        Matrix* sphereMatricies = (Matrix*)MemAlloc(BALL_COUNT * sizeof(Matrix));
+        for (int i = 0; i < BALL_COUNT; i++)
+        {
+            sphereMatricies[i] = ew::CTR(colliders[i].getTransform());
+        }
 
-        DrawGrid(100, 1);
+        drawInstanced(sphereMesh, sphereMaterial, sphereMatricies, BALL_COUNT);
 
         EndMode3D();
 
         //Outside of 3D mode, we can draw 2D things directly to the screen in pixel coordinates
         DrawFPS(GetScreenWidth() - 128, 16);
 
+        MemFree(sphereMatricies);
+
         //ImGUI
         rlImGuiBegin();
         ImGui::Begin("SETTINGS");
 
-        std::string sphereCount = "Spheres: " + std::to_string(COUNT);
-        ImGui::Text(sphereCount.c_str());
+        std::string ballText = "Balls: " + std::to_string(BALL_COUNT);
+        ImGui::Text(ballText.c_str());
 
-        std::string insert = "Insertion: " + std::to_string(insertionTimer.getElapsedTime()) + "ms";
-        ImGui::Text(insert.c_str());
-
-        std::string collision = "Collision: " + std::to_string(collideTimer.getElapsedTime()) + "ms";
-        ImGui::Text(collision.c_str());
+        std::string collisionText = "Collision Calculate: " + std::to_string(collisionTimer.getElapsedTime()) + "ms";
+        std::string insertionText = "Insertion Calculate: " + std::to_string(insertionTimer.getElapsedTime()) + "ms";
+        ImGui::Text(collisionText.c_str());
+        ImGui::Text(insertionText.c_str());
 
         ImGui::End();
         rlImGuiEnd();
 
         EndDrawing();
     }
+
+    data->cleanup();
+
+    UnloadMaterial(sphereMaterial);
+    UnloadTexture(ballTex);
+    UnloadMesh(sphereMesh);
+    //UnloadShader(shader);
 
     CloseWindow();
 
