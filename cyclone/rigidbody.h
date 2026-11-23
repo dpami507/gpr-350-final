@@ -32,6 +32,16 @@ namespace cyclone
 		inline real getInverseMass() const { return mInverseMass; };
 		inline Quaternion getOrientation() const { return mOrientation; };
 		inline Vector3 getLinearVelocity() const { return mVelocity; };
+		// added for angular calculations
+		inline Vector3 getLastFrameAcceleration() const { return mLastFrameAcceleration; }
+		inline Vector3 getAngularVelocity() const { return mAngularVelocity; };
+		inline Matrix3 getWorldInvInerTensor() const { return mInverseInertiaTensorWorld; };
+		// additional method of getting it that sets the parameter pointer as the relevant thing to get
+		inline void getWorldInvInerTensor(Matrix3* inverseInertiaTensor) const { *inverseInertiaTensor = mInverseInertiaTensorWorld; };
+		inline void getPos(Vector3* toBind) const { *toBind = mPosition; };
+		inline void getOrientation(Quaternion* toBind) const { *toBind = mOrientation; };
+
+		void calculateDerivedData();
 
 	private:
 		Vector3 mPosition = Vector3();
@@ -40,6 +50,8 @@ namespace cyclone
 		real mLinearDamping = 0.995;
 		real mInverseMass = 1;
 		Vector3 mForceAccum = Vector3();
+		// keep the last frame's acceleration for new calculations
+		Vector3 mLastFrameAcceleration;
 
 		Quaternion mOrientation = Quaternion();
 		Vector3 mAngularVelocity = Vector3();
@@ -50,7 +62,6 @@ namespace cyclone
 		Matrix4 mTransformMatrix = Matrix4();
 
 		void clearAccumulators();
-		void calculateDerivedData();
 		void calculateInertiaTensor();
 	};
 }
