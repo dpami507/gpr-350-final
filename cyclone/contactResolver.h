@@ -16,6 +16,7 @@ namespace cyclone
 		~ContactResolver() = default;
 
 		void resolveContacts(cyclone::Contact* contactArray, unsigned int numContacts, cyclone::real dt);
+		inline void setCollisionIterations(int numIterations) { mVelocityIterations = numIterations; mPositionIterations = numIterations; };
 
 	private:
 		// sets up the contacts to be processed. this makes the internal data configure correctly. 

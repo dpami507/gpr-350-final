@@ -25,9 +25,13 @@ struct AppSettings {
 
     bool useOctree = true;
     bool optimize = true;
+
+    bool debugOn = false;
+    float debugTimestep = 0.016f;
+    int collisionIterations = 20;
 }_appSettings;
 
-const int BALL_COUNT = 16384; //1024, 2048, 4096, 8192, 16384, 32768;
+const int BALL_COUNT = 10000; //1024, 2048, 4096, 8192, 16384, 32768;
 const int ROOM_SIZE = 10;
 const int MAX_COLLISIONS = 500000;
 const int CELL_SIZE = 4;
@@ -77,8 +81,8 @@ int main() {
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(1280, 720, "octing some trees");
 
-    //Texture2D ballTex = LoadTexture("assets/joebiden.jpeg");
-    Texture2D ballTex = LoadTexture("assets/vision.png");
+    Texture2D ballTex = LoadTexture("assets/joebiden.jpeg");
+    //Texture2D ballTex = LoadTexture("assets/vision.png");
 
     Mesh sphereMesh = GenMeshSphere(0.5, 8, 8);
     Material sphereMaterial = LoadMaterialDefault();
@@ -123,7 +127,7 @@ int main() {
     Camera3D camera = { 0 };
     initCamera(camera);
 
-    cyclone::ContactResolver* resolver = new cyclone::ContactResolver(20, 0.01f, 0.01f);
+    cyclone::ContactResolver* resolver = new cyclone::ContactResolver(_appSettings.collisionIterations, 0.01f, 0.01f);
     cyclone::CollisionData* data = new cyclone::CollisionData();
     data->setCoeffRestitution(_appSettings.cor); // this could cause problems but probably works fine
     data->setFriction(_appSettings.friction);
@@ -139,46 +143,48 @@ int main() {
         float deltaTime = GetFrameTime();
         handleInput(camera, deltaTime);
 
-        // update rigidbody
-        for (cyclone::Rigidbody& rb : rbs)
-        {
-            rb.integrate(deltaTime);
-        }
-        // update internals
-        for (cyclone::Collider& c : colliders)
-        {
-            c.updateInternals();
-        }
-        data->setToStart();
-        
-        // clear map and insert
-        insertionTimer.start();
-        hashing.clear();
-        for (cyclone::Collider& c : colliders)
-        {
-            hashing.insert(&c);
-        }
-        insertionTimer.stop();
-
-        // query collisions
-        collisionTimer.start();
-        std::vector<std::pair<cyclone::Collider*, cyclone::Collider*>> pairs;
-        hashing.queryPossiblePairs(pairs);
-        for (auto& p : pairs)
-        {
-            // check for overlap
-            bool hit = cyclone::CollisionTests::checkCollide(p.first, p.second, data);
-            if (hit)
+        // if debug is on, we only update a frame when a button is pressed.
+        if (_appSettings.debugOn) {
+            // update rigidbody
+            for (cyclone::Rigidbody& rb : rbs)
             {
-                p.first->incrementOverlapCount();
-                p.second->incrementOverlapCount();
+                rb.integrate(deltaTime);
             }
+            // update internals
+            for (cyclone::Collider& c : colliders)
+            {
+                c.updateInternals();
+            }
+            data->setToStart();
+
+            // clear map and insert
+            insertionTimer.start();
+            hashing.clear();
+            for (cyclone::Collider& c : colliders)
+            {
+                hashing.insert(&c);
+            }
+            insertionTimer.stop();
+
+            // query collisions
+            collisionTimer.start();
+            std::vector<std::pair<cyclone::Collider*, cyclone::Collider*>> pairs;
+            hashing.queryPossiblePairs(pairs);
+            for (auto& p : pairs)
+            {
+                // check for overlap
+                bool hit = cyclone::CollisionTests::checkCollide(p.first, p.second, data);
+                if (hit)
+                {
+                    p.first->incrementOverlapCount();
+                    p.second->incrementOverlapCount();
+                }
+            }
+            collisionTimer.stop();
+
+            // resolve
+            resolver->resolveContacts(data->getArray(), data->getCount(), deltaTime);
         }
-        collisionTimer.stop();
-
-        // resolve
-        resolver->resolveContacts(data->getArray(), data->getCount(), deltaTime);
-
         //Drawing
         BeginDrawing();
 
@@ -212,6 +218,56 @@ int main() {
         std::string insertionText = "Insertion Calculate: " + std::to_string(insertionTimer.getElapsedTime()) + "ms";
         ImGui::Text(collisionText.c_str());
         ImGui::Text(insertionText.c_str());
+
+        // debug options I added to see if collisions were working correctly
+        ImGui::Checkbox("Debug: ", &_appSettings.debugOn);
+        ImGui::SliderFloat("Debug Timestep", &_appSettings.debugTimestep, 0.001f, 0.100f);
+        if(ImGui::DragInt("Collision Iterations", &_appSettings.collisionIterations)) {
+            resolver->setCollisionIterations(_appSettings.collisionIterations);
+        }
+        if (ImGui::Button("Next Frame")) {
+            deltaTime = _appSettings.debugTimestep;
+            // update rigidbody
+            for (cyclone::Rigidbody& rb : rbs)
+            {
+                rb.integrate(deltaTime);
+            }
+            // update internals
+            for (cyclone::Collider& c : colliders)
+            {
+                c.updateInternals();
+            }
+            data->setToStart();
+
+            // clear map and insert
+            insertionTimer.start();
+            hashing.clear();
+            for (cyclone::Collider& c : colliders)
+            {
+                hashing.insert(&c);
+            }
+            insertionTimer.stop();
+
+            // query collisions
+            collisionTimer.start();
+            std::vector<std::pair<cyclone::Collider*, cyclone::Collider*>> pairs;
+            hashing.queryPossiblePairs(pairs);
+            for (auto& p : pairs)
+            {
+                // check for overlap
+                bool hit = cyclone::CollisionTests::checkCollide(p.first, p.second, data);
+                if (hit)
+                {
+                    p.first->incrementOverlapCount();
+                    p.second->incrementOverlapCount();
+                }
+            }
+            collisionTimer.stop();
+
+            // resolve
+            resolver->resolveContacts(data->getArray(), data->getCount(), deltaTime);
+        
+        }
 
         ImGui::End();
         rlImGuiEnd();
