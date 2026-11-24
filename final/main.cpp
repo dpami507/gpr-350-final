@@ -30,7 +30,7 @@ struct AppSettings {
 const int BALL_COUNT = 16384; //1024, 2048, 4096, 8192, 16384, 32768;
 const int ROOM_SIZE = 10;
 const int MAX_COLLISIONS = 500000;
-const int CELL_SIZE = 2;
+const int CELL_SIZE = 4;
 
 void initCamera(Camera& camera)
 {
@@ -149,8 +149,6 @@ int main() {
         {
             c.updateInternals();
         }
-
-        std::cout << data->getCount() << '\n';
         data->setToStart();
         
         // clear map and insert

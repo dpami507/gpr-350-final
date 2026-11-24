@@ -59,6 +59,8 @@ namespace cyclone
 		for (std::pair<Vector3Int, std::vector<Collider*>> partition : mMap)
 		{
 			std::vector<Collider*>& vec = partition.second;
+			if (vec.size() <= 1) continue;
+
 			for (int i = 0; i < vec.size(); i++)
 			{
 				for (int j = i + 1; j < vec.size(); j++)
@@ -71,6 +73,16 @@ namespace cyclone
 					}
 				}
 			}
+		}
+		// does slash the fps by a bit but keeps it at 
+		// that fps when they span out and saves a lot of memory
+		for (auto it = mMap.begin(); it != mMap.end();)
+		{
+			// remove if only one inside
+			if (it->second.size() <= 1)
+				it = mMap.erase(it);
+			else 
+				++it;
 		}
 	}
 }
